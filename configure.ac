@@ -96,6 +96,10 @@ else
 fi
 AM_CONDITIONAL([HAVE_EXPAT], [test "${have_expat}" = "yes"])
 
+## check for twsapi
+PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.0], [:], [:])
+AM_CONDITIONAL([HAVE_TWSAPI], [test -n "${pkg_cv_twsapi_LIBS}"])
+
 AM_MISSING_PROG([GPERF], [gperf])
 AM_CONDITIONAL([HAVE_GPERF], [test -n "${GPERF}"])
 if test -n "${GPERF}"; then
