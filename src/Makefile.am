@@ -12,6 +12,8 @@ BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
+noinst_HEADERS += nifty.h
+
 
 ## our rule for gengetopt
 %.c %.h: %.ggo
