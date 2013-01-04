@@ -91,6 +91,9 @@ fi
 ## check for unserding
 PKG_CHECK_MODULES([unserding], [unserding >= 0.2.2])
 
+## check for ute
+PKG_CHECK_MODULES_HEADERS([uterus], [uterus >= 0.2.3], [uterus.h uterus/uterus.h])
+
 dnl must come after all AC_LINK_IFELSE clauses
 ## check for the ldflags
 SXE_CHECK_LDFLAGS
