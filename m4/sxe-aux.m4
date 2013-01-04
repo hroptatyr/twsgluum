@@ -710,8 +710,11 @@ dnl Usage: PKG_CHECK_MODULES_HEADERS([PKG], [VERSION], [HEADERS], [FOUND], [NOT_
 			:
 			$4
 		else
-			:
-			$5
+			m4_default($5, [AC_MSG_ERROR([dnl
+Package ]$1[ was found but its headers are missing.
+Make sure the devel package (along with its header files) is installed
+correctly, or fiddle with ]$1[_CFLAGS if its location is non-standard.
+])])
 		fi
 
 		unset hdr_fnd
