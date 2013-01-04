@@ -4,7 +4,7 @@
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of unsermarkt.
+ * This file is part of twsgluum.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,16 +78,95 @@ void *logerr;
 typedef struct ctx_s *ctx_t;
 
 struct ctx_s {
+	void *tws;
+
 	/* static context */
 	const char *host;
 	uint16_t port;
 	int client;
-
-	/* dynamic context */
-	int tws_sock;
 };
 
 
+/* sock helpers, should be somwhere else */
+static int
+tws_sock(const char *host, short unsigned int port)
+{
+	static char pstr[32];
+	struct addrinfo *aires;
+	struct addrinfo hints = {0};
+	int s = -1;
+
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = 0;
+#if defined AI_ADDRCONFIG
+	hints.ai_flags |= AI_ADDRCONFIG;
+#endif	/* AI_ADDRCONFIG */
+#if defined AI_V4MAPPED
+	hints.ai_flags |= AI_V4MAPPED;
+#endif	/* AI_V4MAPPED */
+	hints.ai_protocol = 0;
+
+	/* port number as string */
+	snprintf(pstr, sizeof(pstr) - 1, "%hu", port);
+
+	if (getaddrinfo(host, pstr, &hints, &aires) < 0) {
+		goto out;
+	}
+	/* now try them all */
+	for (const struct addrinfo *ai = aires;
+	     ai != NULL &&
+		     ((s = socket(ai->ai_family, ai->ai_socktype, 0)) < 0 ||
+		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
+	     s = -1, ai = ai->ai_next);
+
+out:
+	freeaddrinfo(aires);
+	return s;
+}
+
+
+static void
+ev_io_shut(EV_P_ ev_io *w)
+{
+	int fd = w->fd;
+
+	ev_io_stop(EV_A_ w);
+	shutdown(fd, SHUT_RDWR);
+	close(fd);
+	w->fd = -1;
+	return;
+}
+
+static void
+twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
+{
+	ssize_t nrd;
+	static char buf[4096];
+
+	QUO_DEBUG("BANG!\n");
+	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
+		/* uh oh */
+		ev_io_shut(EV_A_ w);
+		w->fd = -1;
+		w->data = NULL;
+		/* we should set a timer here for retrying */
+		return;
+	}
+	QUO_DEBUG("read %zdb\n", nrd);
+	fwrite(buf, 1, nrd, stdout);
+	return;
+}
+
+static void
+prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
+{
+	ctx_t ctx = w->data;
+
+	QUO_DEBUG("PREP\n");
+	return;
+}
+
 static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
@@ -164,6 +243,8 @@ main(int argc, char *argv[])
 	ev_signal sigint_watcher[1];
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
+	ev_prepare prep[1];
+	ev_io twsc[1];
 	/* final result */
 	int res = 0;
 
@@ -214,9 +295,35 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	/* get ourselves a tws socket */
+	{
+		int s;
+
+		if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
+			perror("tws connection setup failed");
+			res = 1;
+			goto unroll;
+		}
+		QUO_DEBUG("tws socket %d\n", s);
+		ev_io_init(twsc, twsc_cb, s, EV_READ);
+		ev_io_start(EV_A_ twsc);
+	}
+
+	/* prepare for hard slavery */
+	prep->data = ctx;
+	ev_prepare_init(prep, prep_cb);
+	ev_prepare_start(EV_A_ prep);
+
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
+	/* cancel them timers and stuff */
+	ev_prepare_stop(EV_A_ prep);
+
+	/* get rid of the tws intrinsics */
+	ev_io_shut(EV_A_ twsc);
+
+unroll:
 	/* destroy the default evloop */
 	ev_default_destroy();
 out:
