@@ -58,6 +58,7 @@
 #include <sys/utsname.h>
 
 /* the tws api */
+#include "tws.h"
 #include "nifty.h"
 
 #if defined __INTEL_COMPILER
@@ -307,6 +308,11 @@ main(int argc, char *argv[])
 		QUO_DEBUG("tws socket %d\n", s);
 		ev_io_init(twsc, twsc_cb, s, EV_READ);
 		ev_io_start(EV_A_ twsc);
+
+		if ((ctx->tws = init_tws(s, ctx->client)) == NULL) {
+			res = 1;
+			goto shut;
+		}
 	}
 
 	/* prepare for hard slavery */
@@ -321,6 +327,9 @@ main(int argc, char *argv[])
 	ev_prepare_stop(EV_A_ prep);
 
 	/* get rid of the tws intrinsics */
+	QUO_DEBUG("finalising tws guts\n");
+	(void)fini_tws(ctx->tws);
+shut:
 	ev_io_shut(EV_A_ twsc);
 
 unroll:
