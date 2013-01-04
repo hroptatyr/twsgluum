@@ -12,6 +12,23 @@ BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
+noinst_HEADERS += nifty.h
+
+
+bin_PROGRAMS += quo-tws
+quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo
+BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
+quo_tws_SOURCES += tws.cpp tws.h
+quo_tws_CPPFLAGS = $(AM_CPPFLAGS)
+quo_tws_CPPFLAGS += $(twsapi_CFLAGS)
+quo_tws_CPPFLAGS += $(libev_CFLAGS)
+quo_tws_LDFLAGS = $(AM_LDFLAGS)
+quo_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
+quo_tws_LDFLAGS += $(libev_LIBS)
+
+## our rule for gengetopt
+%.c %.h: %.ggo
+	$(AM_V_GEN) gengetopt -l -i $< -F $*
 
 # 
 # Help the developers get nice post-processed source files
