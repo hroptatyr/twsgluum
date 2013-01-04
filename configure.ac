@@ -56,6 +56,9 @@ SXE_CHECK_ANON_STRUCTS_INIT
 dnl -------------------------------------------------------------------------
 dnl packages we allow/support
 dnl -------------------------------------------------------------------------
+## event lib
+SXE_CHECK_LIBEV
+
 ## check for mxml
 PKG_CHECK_MODULES([mxml], [mxml >= 2.7],
 	[have_mxml="yes"], [have_mxml="no"])
@@ -73,28 +76,7 @@ fi
 AM_CONDITIONAL([HAVE_MXML], [test "${have_mxml}" = "yes"])
 
 ## check for expat
-PKG_CHECK_MODULES([expat], [expat >= 2.0], [have_expat="yes"], [have_expat="no"])
-if test "${have_expat}" = "yes"; then
-	## check for the header
-	SXE_DUMP_LIBS
-	CPPFLAGS="${CPPFLAGS} ${expat_CFLAGS}"
-	AC_CHECK_HEADERS([expat.h])
-	SXE_RESTORE_LIBS
-
-	if test "${ac_cv_header_expat_h}" != "yes"; then
-		have_expat="no"
-	fi
-else
-## grrr, for all the distros without an expat.pc file
-	AC_CHECK_HEADERS([expat.h])
-
-	if test "${ac_cv_header_expat_h}" = "yes"; then
-		have_expat="yes"
-		expat_LIBS="-lexpat"
-		expat_CFLAGS=""
-	fi
-fi
-AM_CONDITIONAL([HAVE_EXPAT], [test "${have_expat}" = "yes"])
+SXE_CHECK_EXPAT
 
 ## check for twsapi
 PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.0], [:], [:])
@@ -105,6 +87,12 @@ AM_CONDITIONAL([HAVE_GPERF], [test -n "${GPERF}"])
 if test -n "${GPERF}"; then
 	AC_DEFINE([HAVE_GPERF], [1], [define when gperf tool is present])
 fi
+
+## check for unserding
+PKG_CHECK_MODULES([unserding], [unserding >= 0.2.2])
+
+## check for ute
+PKG_CHECK_MODULES_HEADERS([uterus], [uterus >= 0.2.3], [uterus.h uterus/uterus.h])
 
 dnl must come after all AC_LINK_IFELSE clauses
 ## check for the ldflags
