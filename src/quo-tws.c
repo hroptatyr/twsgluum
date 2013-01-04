@@ -155,7 +155,6 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		return;
 	}
 	QUO_DEBUG("read %zdb\n", nrd);
-	fwrite(buf, 1, nrd, stdout);
 	return;
 }
 
