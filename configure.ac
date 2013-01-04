@@ -38,6 +38,9 @@ SXE_CHECK_CC([c11 c1x c99 gnu99])
 AC_C_BIGENDIAN
 SXE_CHECK_CFLAGS
 
+AC_PROG_CXX([icpc g++])
+CXXFLAGS="${CXXFLAGS} -Wall -Wextra"
+
 ## check for byteorder utils
 AC_CHECK_HEADERS([endian.h sys/endian.h byteorder.h byteswap.h])
 
@@ -78,9 +81,32 @@ AM_CONDITIONAL([HAVE_MXML], [test "${have_mxml}" = "yes"])
 ## check for expat
 SXE_CHECK_EXPAT
 
-## check for twsapi
-PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.0], [:], [:])
-AM_CONDITIONAL([HAVE_TWSAPI], [test -n "${pkg_cv_twsapi_LIBS}"])
+## check for twsapi, the one with handshake support
+PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.1], [
+	## check for handshake functions in there
+	AC_MSG_CHECKING([if twsapi has handshake functions])
+	SXE_DUMP_LIBS
+	AC_LANG([C++])
+	CPPFLAGS="${CPPFLAGS} ${twsapi_CFLAGS}"
+	LIBS="${LIBS} ${twsapi_LIBS} -lstdc++"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <twsapi/EPosixClientSocket.h>
+]], [[
+	IB::EPosixClientSocket *cli = NULL;
+	cli->prepareHandshake(-1, 0);
+	cli->handshake();
+	cli->wavegoodbye();
+]])], [have_twsapi_handshake="yes"], [have_twsapi_handshake="no"])
+	SXE_RESTORE_LIBS
+	AC_LANG([C])
+	AC_MSG_RESULT([${have_twsapi_handshake}])
+
+	if test "${have_twsapi_handshake}" != "yes"; then
+		AC_MSG_ERROR([dnl
+Handshake functionality in twsapi is mandatory.
+])
+	fi
+])
 
 AM_MISSING_PROG([GPERF], [gperf])
 AM_CONDITIONAL([HAVE_GPERF], [test -n "${GPERF}"])
