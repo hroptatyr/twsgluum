@@ -15,6 +15,14 @@ EXTRA_DIST = $(BUILT_SOURCES)
 noinst_HEADERS += nifty.h
 
 
+bin_PROGRAMS += quo-tws
+quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo
+BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
+quo_tws_CPPFLAGS = $(AM_CPPFLAGS)
+quo_tws_CPPFLAGS += $(libev_CFLAGS)
+quo_tws_LDFLAGS = $(AM_LDFLAGS)
+quo_tws_LDFLAGS += $(libev_LIBS)
+
 ## our rule for gengetopt
 %.c %.h: %.ggo
 	$(AM_V_GEN) gengetopt -l -i $< -F $*
