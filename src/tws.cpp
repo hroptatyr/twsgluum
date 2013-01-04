@@ -438,6 +438,12 @@ tws_stop(tws_t tws)
 	return TWS_PRIV_CLI(tws)->wavegoodbye();
 }
 
+static inline int
+__sock_ok_p(tws_t tws)
+{
+	return TWS_PRIV_CLI(tws)->isSocketOK() ? 0 : -1;
+}
+
 
 // public funs
 tws_t
@@ -471,6 +477,20 @@ fini_tws(tws_t tws)
 		delete TWS_PRIV_WRP(tws);
 	}
 	return 0;
+}
+
+int
+tws_send(tws_t tws)
+{
+	TWS_PRIV_CLI(tws)->onSend();
+	return __sock_ok_p(tws);
+}
+
+int
+tws_recv(tws_t tws)
+{
+	TWS_PRIV_CLI(tws)->onReceive();
+	return __sock_ok_p(tws);
 }
 
 /* tws.cpp ends here */

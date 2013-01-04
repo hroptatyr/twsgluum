@@ -51,6 +51,9 @@ extern tws_t init_tws(int sock, int client);
 extern int fini_tws(tws_t);
 extern void rset_tws(tws_t);
 
+extern int tws_recv(tws_t);
+extern int tws_send(tws_t);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */

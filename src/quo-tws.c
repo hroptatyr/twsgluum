@@ -142,19 +142,20 @@ ev_io_shut(EV_P_ ev_io *w)
 static void
 twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 {
-	ssize_t nrd;
-	static char buf[4096];
+	ctx_t ctx = w->data;
 
 	QUO_DEBUG("BANG!\n");
-	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
+	if (ctx->tws != NULL && tws_recv(ctx->tws) < 0) {
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
 		w->data = NULL;
+		(void)fini_tws(ctx->tws);
+		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
+		QUO_DEBUG("scheduling reconnect\n");
 		return;
 	}
-	QUO_DEBUG("read %zdb\n", nrd);
 	return;
 }
 
@@ -164,6 +165,23 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	ctx_t ctx = w->data;
 
 	QUO_DEBUG("PREP\n");
+	return;
+}
+
+static void
+chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
+{
+	ctx_t ctx = w->data;
+
+	QUO_DEBUG("CHCK\n");
+	if (ctx->tws != NULL && tws_send(ctx->tws) < 0) {
+		/* grrr */
+		(void)fini_tws(ctx->tws);
+		ctx->tws = NULL;
+		/* we should set a timer here for retrying */
+		QUO_DEBUG("tws died upon CHCK, scheduling reconnect\n");
+		return;
+	}
 	return;
 }
 
@@ -244,6 +262,7 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
+	ev_check chck[1];
 	ev_io twsc[1];
 	/* final result */
 	int res = 0;
@@ -305,6 +324,7 @@ main(int argc, char *argv[])
 			goto unroll;
 		}
 		QUO_DEBUG("tws socket %d\n", s);
+		twsc->data = ctx;
 		ev_io_init(twsc, twsc_cb, s, EV_READ);
 		ev_io_start(EV_A_ twsc);
 
@@ -319,11 +339,16 @@ main(int argc, char *argv[])
 	ev_prepare_init(prep, prep_cb);
 	ev_prepare_start(EV_A_ prep);
 
+	chck->data = ctx;
+	ev_check_init(chck, chck_cb);
+	ev_check_start(EV_A_ chck);
+
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
 	ev_prepare_stop(EV_A_ prep);
+	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
 	QUO_DEBUG("finalising tws guts\n");
