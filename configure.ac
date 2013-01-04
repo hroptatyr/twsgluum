@@ -82,31 +82,12 @@ AM_CONDITIONAL([HAVE_MXML], [test "${have_mxml}" = "yes"])
 SXE_CHECK_EXPAT
 
 ## check for twsapi, the one with handshake support
-PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.1], [
-	## check for handshake functions in there
-	AC_MSG_CHECKING([if twsapi has handshake functions])
-	SXE_DUMP_LIBS
-	AC_LANG([C++])
-	CPPFLAGS="${CPPFLAGS} ${twsapi_CFLAGS}"
-	LIBS="${LIBS} ${twsapi_LIBS} -lstdc++"
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <twsapi/EPosixClientSocket.h>
-]], [[
-	IB::EPosixClientSocket *cli = NULL;
-	cli->prepareHandshake(-1, 0);
-	cli->handshake();
-	cli->wavegoodbye();
-]])], [have_twsapi_handshake="yes"], [have_twsapi_handshake="no"])
-	SXE_RESTORE_LIBS
-	AC_LANG([C])
-	AC_MSG_RESULT([${have_twsapi_handshake}])
-
-	if test "${have_twsapi_handshake}" != "yes"; then
-		AC_MSG_ERROR([dnl
+SXE_CHECK_TWSAPI
+SXE_CHECK_TWSAPI_HANDSHAKE([:], [
+	AC_MSG_ERROR([dnl
 Handshake functionality in twsapi is mandatory.
-])
-	fi
-])
+])])
+
 
 AM_MISSING_PROG([GPERF], [gperf])
 AM_CONDITIONAL([HAVE_GPERF], [test -n "${GPERF}"])
