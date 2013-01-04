@@ -56,6 +56,9 @@ SXE_CHECK_ANON_STRUCTS_INIT
 dnl -------------------------------------------------------------------------
 dnl packages we allow/support
 dnl -------------------------------------------------------------------------
+## event lib
+SXE_CHECK_LIBEV
+
 ## check for mxml
 PKG_CHECK_MODULES([mxml], [mxml >= 2.7],
 	[have_mxml="yes"], [have_mxml="no"])
