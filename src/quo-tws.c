@@ -39,6 +39,7 @@
 #endif	/* HAVE_CONFIG_H */
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <errno.h>
 /* for gmtime_r */
 #include <time.h>
@@ -86,6 +87,25 @@ struct ctx_s {
 	uint16_t port;
 	int client;
 };
+
+
+/* i/o and logging aspect */
+static void
+__attribute__((format(printf, 2, 3)))
+error(int eno, const char *fmt, ...)
+{
+	va_list vap;
+	va_start(vap, fmt);
+	vfprintf(logerr, fmt, vap);
+	va_end(vap);
+	if (eno) {
+		fputc(':', logerr);
+		fputc(' ', logerr);
+		fputs(strerror(eno), logerr);
+	}
+	fputc('\n', logerr);
+	return;
+}
 
 
 /* sock helpers, should be somwhere else */
