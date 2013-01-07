@@ -1,4 +1,4 @@
-/*** tws.h -- tws c portion
+/*** daemonise.h -- helpers for logging and daemonisation
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,41 +34,29 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_tws_h_
-#define INCLUDED_tws_h_
+#if !defined INCLUDED_daemonise_h_
+#define INCLUDED_daemonise_h_
 
-#include <stdbool.h>
+#include <sys/types.h>
+#include <stdarg.h>
 
 #if defined __cplusplus
 extern "C" {
 #endif	/* __cplusplus */
 
-typedef struct tws_s *tws_t;
+/* this really is a FILE* */
+extern void *logerr;
 
-typedef enum {
-	/** no state can be determined */
-	TWS_ST_UNK,
-	/** in the state of setting up the connection */
-	TWS_ST_SUP,
-	/** ready state, you should be able to read and write */
-	TWS_ST_RDY,
-	/** down state, either finish the conn or re-set it up */
-	TWS_ST_DWN,
-} tws_st_t;
+/**
+ * Detach the process and open LOGFN as a file stream for logging. */
+extern pid_t detach(const char *logfn);
 
-
-/* connection guts */
-extern tws_t init_tws(int sock, int client);
-extern int fini_tws(tws_t);
-extern void rset_tws(tws_t);
-
-extern int tws_recv(tws_t);
-extern int tws_send(tws_t);
-
-extern tws_st_t tws_state(tws_t);
+/**
+ * Rotate the log file. */
+extern void rotate_logfn(void);
 
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_tws_h_ */
+#endif	/* INCLUDED_daemonise_h_ */

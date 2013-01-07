@@ -41,6 +41,7 @@
 #include <twsapi/EWrapper.h>
 #include <twsapi/EPosixClientSocket.h>
 #include "tws.h"
+#include "nifty.h"
 
 #define TWS_WRP(x)	((__wrapper*)x)
 #define TWS_CLI(x)	((IB::EPosixClientSocket*)(TWS_WRP(x))->cli)
@@ -136,275 +137,11 @@ public:
 	void *cli;
 };
 
-void
-__wrapper::tickPrice(IB::TickerId id, IB::TickType fld, double pri, int)
-{
-	return;
-}
-
-void
-__wrapper::tickSize(IB::TickerId id, IB::TickType fld, int size)
-{
-	return;
-}
-
-void
-__wrapper::tickOptionComputation(
-	IB::TickerId id, IB::TickType fld,
-	double, double,
-	double, double, double, double,
-	double, double)
-{
-	return;
-}
-
-void
-__wrapper::tickGeneric(IB::TickerId id, IB::TickType fld, double value)
-{
-	return;
-}
-
-void
-__wrapper::tickString(IB::TickerId id, IB::TickType fld, const IB::IBString &s)
-{
-	return;
-}
-
-void
-__wrapper::tickEFP(
-	IB::TickerId id, IB::TickType fld,
-	double, const IB::IBString&,
-	double, int,
-	const IB::IBString&, double, double)
-{
-	return;
-}
-
-void
-__wrapper::tickSnapshotEnd(int id)
-{
-	return;
-}
-
-void
-__wrapper::marketDataType(IB::TickerId id, int mkt_data_type)
-{
-	return;
-}
-
-void
-__wrapper::contractDetails(int req_id, const IB::ContractDetails &cd)
-{
-	return;
-}
-
-void
-__wrapper::bondContractDetails(int req_id, const IB::ContractDetails &cd)
-{
-	return;
-}
-
-void
-__wrapper::contractDetailsEnd(int req_id)
-{
-	return;
-}
-
-void
-__wrapper::fundamentalData(IB::TickerId id, const IB::IBString &data)
-{
-	return;
-}
-
-void
-__wrapper::updateMktDepth(
-	IB::TickerId id,
-	int, int, int, double, int)
-{
-	return;
-}
-
-void
-__wrapper::updateMktDepthL2(
-	IB::TickerId id,
-	int, IB::IBString,
-	int, int, double, int)
-{
-	return;
-}
-
-void
-__wrapper::historicalData(
-	IB::TickerId id, const IB::IBString&,
-	double, double, double, double, int,
-	int, double, int)
-{
-	return;
-}
-
-void
-__wrapper::realtimeBar(
-	IB::TickerId id, long,
-	double, double, double, double,
-	long, double, int)
-{
-	return;
-}
-
-
-/* trades */
-void
-__wrapper::orderStatus(
-	IB::OrderId id, const IB::IBString &state,
-	int flld, int remn, double,
-	int perm_id, int parent_id, double prc, int cli,
-	const IB::IBString &yheld)
-{
-	return;
-}
-
-void
-__wrapper::openOrder(
-	IB::OrderId id, const IB::Contract &c,
-	const IB::Order &o, const IB::OrderState &s)
-{
-	return;
-}
-
-void
-__wrapper::openOrderEnd(void)
-{
-	return;
-}
-
-void
-__wrapper::execDetails(int rid, const IB::Contract &c, const IB::Execution &ex)
-{
-	return;
-}
-
-void
-__wrapper::execDetailsEnd(int req_id)
-{
-	return;
-}
-
-
-/* post trade */
-void
-__wrapper::updateAccountValue(
-	const IB::IBString &key, const IB::IBString &val,
-	const IB::IBString &ccy, const IB::IBString &acn)
-{
-	return;
-}
-
-void
-__wrapper::updatePortfolio(
-	const IB::Contract &c, int pos,
-	double, double mkt_val, double, double, double,
-	const IB::IBString &acn)
-{
-	return;
-}
-
-void
-__wrapper::updateAccountTime(const IB::IBString&)
-{
-	return;
-}
-
-void
-__wrapper::accountDownloadEnd(const IB::IBString &name)
-{
-	return;
-}
-
-void
-__wrapper::managedAccounts(const IB::IBString &ac)
-{
-	return;
-}
-
-
-/* infra */
-void
-__wrapper::error(const int id, const int code, const IB::IBString msg)
-{
-	return;
-}
-
-void
-__wrapper::winError(const IB::IBString &str, int code)
-{
-	return;
-}
-
-void
-__wrapper::connectionClosed(void)
-{
-	return;
-}
-
-
-/* stuff that doesn't do calling-back at all */
-void
-__wrapper::currentTime(long int time)
-{
-/* not public */
-	this->time = time;
-	return;
-}
-
-void
-__wrapper::nextValidId(IB::OrderId oid)
-{
-/* not public */
-	this->next_oid = oid;
-	return;
-}
-
-void
-__wrapper::scannerParameters(const IB::IBString&)
-{
-	return;
-}
-
-void
-__wrapper::scannerData(
-	int, int,
-	const IB::ContractDetails&,
-	const IB::IBString&, const IB::IBString&,
-	const IB::IBString&, const IB::IBString&)
-{
-	return;
-}
-
-void
-__wrapper::scannerDataEnd(int)
-{
-	return;
-}
-
-void
-__wrapper::deltaNeutralValidation(int, const IB::UnderComp&)
-{
-	return;
-}
-
-void
-__wrapper::updateNewsBulletin(
-	int, int,
-	const IB::IBString&, const IB::IBString&)
-{
-	return;
-}
-
-void
-__wrapper::receiveFA(IB::faDataType, const IB::IBString&)
-{
-	return;
-}
+#if defined ASPECT_QUO
+# include "quo-wrapper.cpp"
+#else
+# include "empty-wrapper.cpp"
+#endif
 
 
 static void
@@ -415,27 +152,28 @@ rset_tws(tws_t tws)
 	return;
 }
 
-int
-tws_started_p(tws_t tws)
-{
-	return TWS_PRIV_CLI(tws)->handshake() == 1;
-}
-
 static int
 tws_start(tws_t tws)
 {
-	int st;
-
-	if ((st = TWS_PRIV_CLI(tws)->handshake()) == 1) {
-		TWS_PRIV_CLI(tws)->reqCurrentTime();
-	}
-	return st;
+	return TWS_PRIV_CLI(tws)->handshake();
 }
 
 static int
 tws_stop(tws_t tws)
 {
 	return TWS_PRIV_CLI(tws)->wavegoodbye();
+}
+
+static inline int
+__started_p(tws_t tws)
+{
+	return TWS_PRIV_CLI(tws)->handshake() == 1;
+}
+
+static inline int
+__sock_ok_p(tws_t tws)
+{
+	return TWS_PRIV_CLI(tws)->isSocketOK();
 }
 
 
@@ -456,14 +194,14 @@ init_tws(int sock, int client)
 int
 fini_tws(tws_t tws)
 {
-	/* we used to call tws_disconnect() here but that's ancient history
-	 * just like we don't call tws_connect() in tws_init() we won't call
-	 * tws_disconnect() here. */
-	tws_stop(tws);
-	/* wipe our context off the face of this earth */
-	rset_tws(tws);
-
+	if (UNLIKELY(tws == NULL)) {
+		/* already finished */
+		return 0;
+	}
 	if (TWS_PRIV_CLI(tws)) {
+		/* perform API internal stopping routine */
+		tws_stop(tws);
+
 		delete TWS_PRIV_CLI(tws);
 		TWS_PRIV_WRP(tws)->cli = NULL;
 	}
@@ -471,6 +209,39 @@ fini_tws(tws_t tws)
 		delete TWS_PRIV_WRP(tws);
 	}
 	return 0;
+}
+
+int
+tws_send(tws_t tws)
+{
+	TWS_PRIV_CLI(tws)->onSend();
+	return __sock_ok_p(tws) ? 0 : -1;
+}
+
+int
+tws_recv(tws_t tws)
+{
+	TWS_PRIV_CLI(tws)->onReceive();
+	return __sock_ok_p(tws) ? 0 : -1;
+}
+
+tws_st_t
+tws_state(tws_t tws)
+{
+	if (UNLIKELY(tws == NULL || TWS_PRIV_CLI(tws) == NULL)) {
+		return TWS_ST_UNK;
+	} else if (!__sock_ok_p(tws)) {
+		/* fucking great */
+		return TWS_ST_DWN;
+	} else if (!__started_p(tws)) {
+		/* in the middle of a set-up */
+		return TWS_ST_SUP;
+	} else if (!TWS_PRIV_WRP(tws)->next_oid) {
+		/* we get the next_oid automatically */
+		return TWS_ST_SUP;
+	}
+	/* nothing else to assume */
+	return TWS_ST_RDY;
 }
 
 /* tws.cpp ends here */

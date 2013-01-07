@@ -1,4 +1,4 @@
-/*** tws.h -- tws c portion
+/*** pf-tws.h -- portfolio events from tws
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,41 +34,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_tws_h_
-#define INCLUDED_tws_h_
-
-#include <stdbool.h>
+#if !defined INCLUDED_pf_tws_h_
+#define INCLUDED_pf_tws_h_
 
 #if defined __cplusplus
 extern "C" {
 #endif	/* __cplusplus */
 
-typedef struct tws_s *tws_t;
-
-typedef enum {
-	/** no state can be determined */
-	TWS_ST_UNK,
-	/** in the state of setting up the connection */
-	TWS_ST_SUP,
-	/** ready state, you should be able to read and write */
-	TWS_ST_RDY,
-	/** down state, either finish the conn or re-set it up */
-	TWS_ST_DWN,
-} tws_st_t;
-
-
-/* connection guts */
-extern tws_t init_tws(int sock, int client);
-extern int fini_tws(tws_t);
-extern void rset_tws(tws_t);
-
-extern int tws_recv(tws_t);
-extern int tws_send(tws_t);
-
-extern tws_st_t tws_state(tws_t);
-
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_tws_h_ */
+#endif	/* INCLUDED_pf_tws_h_ */

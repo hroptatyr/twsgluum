@@ -1,4 +1,4 @@
-/*** tws.h -- tws c portion
+/*** daemonise.c -- helpers for logging and daemonisation
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,41 +34,64 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_tws_h_
-#define INCLUDED_tws_h_
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <stdio.h>
 
-#include <stdbool.h>
+#include "daemonise.h"
+#include "logger.h"
+#include "nifty.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif	/* __cplusplus */
+static const char *glogfn;
 
-typedef struct tws_s *tws_t;
-
-typedef enum {
-	/** no state can be determined */
-	TWS_ST_UNK,
-	/** in the state of setting up the connection */
-	TWS_ST_SUP,
-	/** ready state, you should be able to read and write */
-	TWS_ST_RDY,
-	/** down state, either finish the conn or re-set it up */
-	TWS_ST_DWN,
-} tws_st_t;
-
-
-/* connection guts */
-extern tws_t init_tws(int sock, int client);
-extern int fini_tws(tws_t);
-extern void rset_tws(tws_t);
-
-extern int tws_recv(tws_t);
-extern int tws_send(tws_t);
-
-extern tws_st_t tws_state(tws_t);
-
-#if defined __cplusplus
+void
+rotate_logfn(void)
+{
+	return;
 }
-#endif	/* __cplusplus */
 
-#endif	/* INCLUDED_tws_h_ */
+pid_t
+detach(const char *logfn)
+{
+	int fd;
+	pid_t pid;
+
+	switch (pid = fork()) {
+	case -1:
+		return -1;
+	case 0:
+		break;
+	default:
+		/* i am the parent */
+		printf("daemonisation successful %d\n", pid);
+		exit(0);
+	}
+
+	if (setsid() == -1) {
+		return -1;
+	}
+	/* close standard tty descriptors */
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+	/* reattach them to /dev/null */
+	if (LIKELY((fd = open("/dev/null", O_RDWR, 0)) >= 0)) {
+		(void)dup2(fd, STDIN_FILENO);
+		(void)dup2(fd, STDOUT_FILENO);
+		(void)dup2(fd, STDERR_FILENO);
+	}
+
+	if ((glogfn = logfn) != NULL) {
+		logerr = fopen(logfn, "w");
+		atexit(rotate_logfn);
+	} else {
+		logerr = fdopen(fd, "w");
+	}
+	return pid;
+}
+
+/* daemonise.c ends here */

@@ -1,4 +1,4 @@
-/*** tws.h -- tws c portion
+/*** logger.c -- helpers for logging
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,41 +34,30 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_tws_h_
-#define INCLUDED_tws_h_
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include <stdio.h>
+#include <string.h>
 
-#include <stdbool.h>
+#include "logger.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif	/* __cplusplus */
+void *logerr;
 
-typedef struct tws_s *tws_t;
-
-typedef enum {
-	/** no state can be determined */
-	TWS_ST_UNK,
-	/** in the state of setting up the connection */
-	TWS_ST_SUP,
-	/** ready state, you should be able to read and write */
-	TWS_ST_RDY,
-	/** down state, either finish the conn or re-set it up */
-	TWS_ST_DWN,
-} tws_st_t;
-
-
-/* connection guts */
-extern tws_t init_tws(int sock, int client);
-extern int fini_tws(tws_t);
-extern void rset_tws(tws_t);
-
-extern int tws_recv(tws_t);
-extern int tws_send(tws_t);
-
-extern tws_st_t tws_state(tws_t);
-
-#if defined __cplusplus
+__attribute__((format(printf, 2, 3))) void
+error(int eno, const char *fmt, ...)
+{
+	va_list vap;
+	va_start(vap, fmt);
+	vfprintf(logerr, fmt, vap);
+	va_end(vap);
+	if (eno) {
+		fputc(':', logerr);
+		fputc(' ', logerr);
+		fputs(strerror(eno), logerr);
+	}
+	fputc('\n', logerr);
+	return;
 }
-#endif	/* __cplusplus */
 
-#endif	/* INCLUDED_tws_h_ */
+/* logger.c ends here */
