@@ -173,7 +173,7 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		w->data = NULL;
 		(void)fini_tws(ctx->tws);
 		/* we should set a timer here for retrying */
-		QUO_DEBUG("scheduling reconnect\n");
+		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
 	}
 	/* otherwise go ahead and read things */
@@ -280,7 +280,7 @@ static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
-	QUO_DEBUG("unlooping\n");
+	QUO_DEBUG("UNLO\n");
 	return;
 }
 
@@ -421,7 +421,7 @@ main(int argc, char *argv[])
 	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
-	QUO_DEBUG("finalising tws guts\n");
+	QUO_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
 	reco_cb(EV_A_ NULL, 0);
 
