@@ -33,6 +33,21 @@ quo_tws_LDADD =
 quo_tws_LDADD += $(twsapi_LIBS)
 EXTRA_DIST += quo-wrapper.cpp
 
+bin_PROGRAMS += pf-tws
+pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
+BUILT_SOURCES += pf-tws-clo.c pf-tws-clo.h
+pf_tws_SOURCES += tws.cpp tws.h
+pf_tws_SOURCES += logger.c logger.h
+pf_tws_SOURCES += daemonise.c daemonise.h
+pf_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_PF
+pf_tws_CPPFLAGS += $(twsapi_CFLAGS)
+pf_tws_CPPFLAGS += $(libev_CFLAGS)
+pf_tws_LDFLAGS = $(AM_LDFLAGS)
+pf_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
+pf_tws_LDFLAGS += $(libev_LIBS)
+pf_tws_LDADD =
+pf_tws_LDADD += $(twsapi_LIBS)
+
 EXTRA_DIST += empty-wrapper.cpp
 
 ## our rule for gengetopt
