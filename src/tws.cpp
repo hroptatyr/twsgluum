@@ -685,6 +685,8 @@ init_tws(tws_t tws, int sock, int client)
 	rset_tws(tws);
 	TWS_PRIV_WRP(tws)->cli = new IB::EPosixClientSocket(TWS_PRIV_WRP(tws));
 
+	/* just so we know who we are */
+	TWS_PRIV_WRP(tws)->tws = tws;
 	TWS_PRIV_CLI(tws)->prepareHandshake(sock, client);
 	return tws_start(tws) == 1;
 }
