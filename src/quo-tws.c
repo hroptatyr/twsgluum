@@ -39,6 +39,7 @@
 #endif	/* HAVE_CONFIG_H */
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <errno.h>
 /* for gmtime_r */
 #include <time.h>
@@ -88,6 +89,25 @@ struct ctx_s {
 };
 
 
+/* i/o and logging aspect */
+static void
+__attribute__((format(printf, 2, 3)))
+error(int eno, const char *fmt, ...)
+{
+	va_list vap;
+	va_start(vap, fmt);
+	vfprintf(logerr, fmt, vap);
+	va_end(vap);
+	if (eno) {
+		fputc(':', logerr);
+		fputc(' ', logerr);
+		fputs(strerror(eno), logerr);
+	}
+	fputc('\n', logerr);
+	return;
+}
+
+
 /* sock helpers, should be somwhere else */
 static int
 tws_sock(const char *host, short unsigned int port)
@@ -119,7 +139,7 @@ tws_sock(const char *host, short unsigned int port)
 	     ai != NULL &&
 		     ((s = socket(ai->ai_family, ai->ai_socktype, 0)) < 0 ||
 		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
-	     s = -1, ai = ai->ai_next);
+	     close(s), s = -1, ai = ai->ai_next);
 
 out:
 	freeaddrinfo(aires);
@@ -142,28 +162,118 @@ ev_io_shut(EV_P_ ev_io *w)
 static void
 twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 {
-	ssize_t nrd;
-	static char buf[4096];
+	static char noop[1];
+	ctx_t ctx = w->data;
 
-	QUO_DEBUG("BANG!\n");
-	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
+	QUO_DEBUG("BANG  %x\n", rev);
+	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
 		w->data = NULL;
+		(void)fini_tws(ctx->tws);
+		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
+		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
 	}
-	QUO_DEBUG("read %zdb\n", nrd);
+	/* otherwise go ahead and read things */
+	(void)tws_recv(ctx->tws);
+	return;
+}
+
+static void
+reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
+{
+/* reconnect to the tws service, socket level */
+	static ev_io twsc[1];
+	ctx_t ctx;
+	int s;
+
+	/* going down? */
+	if (UNLIKELY(w == NULL)) {
+		QUO_DEBUG("FINI  %d\n", twsc->fd);
+		ev_io_shut(EV_A_ twsc);
+		return;
+	}
+	/* otherwise proceed normally */
+	ctx = w->data;
+	if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
+		error(errno, "tws connection setup failed");
+		return;
+	}
+
+	QUO_DEBUG("CONN  %d\n", s);
+	twsc->data = ctx;
+	ev_io_init(twsc, twsc_cb, s, EV_READ);
+	ev_io_start(EV_A_ twsc);
+
+	if (UNLIKELY((ctx->tws = init_tws(s, ctx->client)) == NULL)) {
+		QUO_DEBUG("DOWN  %d\n", s);
+		ev_io_shut(EV_A_ twsc);
+		return;
+	}
+	/* and lastly, stop ourselves */
+	ev_timer_stop(EV_A_ w);
+	w->data = NULL;
 	return;
 }
 
 static void
 prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 {
+	static ev_timer reco[1];
 	ctx_t ctx = w->data;
+	tws_st_t st;
 
 	QUO_DEBUG("PREP\n");
+
+	st = tws_state(ctx->tws);
+	QUO_DEBUG("STAT  %u\n", st);
+	switch (st) {
+	case TWS_ST_UNK:
+	case TWS_ST_DWN:
+		/* is there a timer already? */
+		if (reco->data == NULL) {
+			/* start the reconnection timer */
+			reco->data = ctx;
+			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
+			ev_timer_start(EV_A_ reco);
+			QUO_DEBUG("RECO\n");
+		}
+		break;
+	case TWS_ST_RDY:
+	case TWS_ST_SUP:
+		break;
+	default:
+		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		abort();
+	}
+	return;
+}
+
+static void
+chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
+{
+	ctx_t ctx = w->data;
+	tws_st_t st;
+
+	QUO_DEBUG("CHCK\n");
+
+	st = tws_state(ctx->tws);
+	QUO_DEBUG("STAT  %u\n", st);
+	switch (st) {
+	case TWS_ST_SUP:
+	case TWS_ST_RDY:
+		tws_send(ctx->tws);
+		break;
+	case TWS_ST_UNK:
+	case TWS_ST_DWN:
+		break;
+	default:
+		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		abort();
+	}
 	return;
 }
 
@@ -171,7 +281,7 @@ static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
-	QUO_DEBUG("unlooping\n");
+	QUO_DEBUG("UNLO\n");
 	return;
 }
 
@@ -244,7 +354,7 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
-	ev_io twsc[1];
+	ev_check chck[1];
 	/* final result */
 	int res = 0;
 
@@ -295,43 +405,28 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* get ourselves a tws socket */
-	{
-		int s;
-
-		if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
-			perror("tws connection setup failed");
-			res = 1;
-			goto unroll;
-		}
-		QUO_DEBUG("tws socket %d\n", s);
-		ev_io_init(twsc, twsc_cb, s, EV_READ);
-		ev_io_start(EV_A_ twsc);
-
-		if ((ctx->tws = init_tws(s, ctx->client)) == NULL) {
-			res = 1;
-			goto shut;
-		}
-	}
-
 	/* prepare for hard slavery */
 	prep->data = ctx;
 	ev_prepare_init(prep, prep_cb);
 	ev_prepare_start(EV_A_ prep);
+
+	chck->data = ctx;
+	ev_check_init(chck, chck_cb);
+	ev_check_start(EV_A_ chck);
 
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
 	ev_prepare_stop(EV_A_ prep);
+	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
-	QUO_DEBUG("finalising tws guts\n");
+	QUO_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
-shut:
-	ev_io_shut(EV_A_ twsc);
+	ctx->tws = NULL;
+	reco_cb(EV_A_ NULL, 0);
 
-unroll:
 	/* destroy the default evloop */
 	ev_default_destroy();
 out:
