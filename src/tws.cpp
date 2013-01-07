@@ -682,6 +682,17 @@ tws_ready_p(tws_t tws)
 	return TWS_PRIV_WRP(tws)->next_oid > 0;
 }
 
+static int
+tws_req_quo(tws_t tws, tws_oid_t oid, tws_const_sdef_t sdef)
+{
+	const IB::ContractDetails *c = (const IB::ContractDetails*)sdef;
+	IB::IBString generics = std::string("");
+	bool snapp = false;
+
+	TWS_PRIV_CLI(tws)->reqMktData(oid, c->summary, generics, snapp);
+	return __sock_ok_p(tws);
+}
+
 
 // public funs
 int
@@ -767,6 +778,31 @@ tws_req_sdef(tws_t tws, const void *c)
 
 		TWS_PRIV_CLI(tws)->reqContractDetails(oid, *cont);
 	}
+	return __sock_ok_p(tws);
+}
+
+/* pre requests */
+tws_oid_t
+tws_sub_quo(tws_t tws, tws_const_sdef_t sdef)
+{
+	tws_oid_t res;
+
+	if (UNLIKELY(!tws_ready_p(tws))) {
+		return 0;
+	}
+
+	/* we'll request idx + next_oid */
+	res = TWS_PRIV_WRP(tws)->next_oid++;
+	if (tws_req_quo(tws, res, sdef) < 0) {
+		return 0;
+	}
+	return res;
+}
+
+int
+tws_rem_quo(tws_t tws, tws_oid_t oid)
+{
+	TWS_PRIV_CLI(tws)->cancelMktData((IB::TickerId)oid);
 	return __sock_ok_p(tws);
 }
 
