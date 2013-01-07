@@ -176,6 +176,13 @@ __sock_ok_p(tws_t tws)
 	return TWS_PRIV_CLI(tws)->isSocketOK();
 }
 
+static inline int
+tws_ready_p(tws_t tws)
+{
+/* inspect TWS and return non-nil if requests to the tws can be made */
+	return TWS_PRIV_WRP(tws)->next_oid > 0;
+}
+
 
 // public funs
 tws_t
@@ -242,6 +249,24 @@ tws_state(tws_t tws)
 	}
 	/* nothing else to assume */
 	return TWS_ST_RDY;
+}
+
+
+int
+tws_req_sdef(tws_t tws, const void *c)
+{
+	if (UNLIKELY(!tws_ready_p(tws))) {
+		    return -1;
+	}
+
+	/* and now we just assume it works */
+	{
+		const IB::Contract *cont = (const IB::Contract*)c;
+		tws_oid_t oid = TWS_PRIV_WRP(tws)->next_oid++;
+
+		TWS_PRIV_CLI(tws)->reqContractDetails(oid, *cont);
+	}
+	return __sock_ok_p(tws);
 }
 
 /* tws.cpp ends here */
