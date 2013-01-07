@@ -1,0 +1,33 @@
+%{
+typedef struct tws_xml_tag_s *tws_xml_tag_t;
+
+#include "proto-twsxml-tag.h"
+
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name tag
+%define hash-function-name __tid_hash
+%define lookup-function-name __tiddify
+%null-strings
+%enum
+
+struct tws_xml_tag_s {
+	const char *tag;
+	tws_xml_tid_t tid;
+};
+
+%%
+TWSXML, TX_TAG_TWSXML
+contract, TX_TAG_CONTRACT
+contractDetails, TX_TAG_CONTRACTDETAILS
+order, TX_TAG_ORDER
+query, TX_TAG_QUERY
+reqContract, TX_TAG_REQCONTRACT
+request, TX_TAG_REQUEST
+response, TX_TAG_RESPONSE
+summary, TX_TAG_SUMMARY
+comboLegs, TX_TAG_COMBOLEGS
+comboLeg, TX_TAG_COMBOLEG

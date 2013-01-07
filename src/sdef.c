@@ -1,0 +1,326 @@
+/*** sdef.c -- security definitions
+ *
+ * Copyright (C) 2012-2013 Sebastian Freundt
+ *
+ * Author:  Sebastian Freundt <freundt@ga-group.nl>
+ *
+ * This file is part of twsgluum.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the author nor the names of any contributors
+ *    may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ ***/
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include <string.h>
+#include <stdbool.h>
+#if defined HAVE_EXPAT_H
+# include <expat.h>
+#endif	/* HAVE_EXPAT_H */
+#include "sdef.h"
+#include "nifty.h"
+#include "logger.h"
+
+#include "sdef.h"
+#include "proto-tx-ns.h"
+#include "proto-tx-attr.h"
+#include "proto-twsxml-tag.h"
+#include "proto-fixml-tag.h"
+#include "sdef-private.h"
+
+#if defined DEBUG_FLAG
+# define TX_DEBUG(args...)	logger(args)
+#else  /* !DEBUG_FLAG */
+# define TX_DEBUG(args...)
+#endif	/* DEBUG_FLAG */
+
+
+#if defined HAVE_GPERF
+/* all the generated stuff */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:869)
+#elif defined __GNUC_STDC_INLINE__
+# define HAD_STDC_INLINE
+# undef __GNUC_STDC_INLINE__
+#endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
+
+#include "proto-tx-ns.c"
+#include "proto-tx-attr.c"
+
+#if defined __INTEL_COMPILER
+# pragma warning (default:869)
+#elif defined HAD_STDC_INLINE
+/* redefine the guy again */
+# define __GNUC_STDC_INLINE__
+#endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
+#endif	/* HAVE_GPERF */
+
+
+#if defined HAVE_EXPAT_H
+static ptx_ns_t
+__pref_to_ns(__ctx_t ctx, const char *pref, size_t pref_len)
+{
+	if (UNLIKELY(ctx->ns[0].nsid == TX_NS_UNK)) {
+		/* bit of a hack innit? */
+		return ctx->ns;
+
+	} else if (LIKELY(pref_len == 0 && ctx->ns[0].pref == NULL)) {
+		/* most common case when people use the default ns */
+		return ctx->ns;
+	}
+	/* special service for us because we're lazy:
+	 * you can pass pref = "foo:" and say pref_len is 4
+	 * easier to deal with when strings are const etc. */
+	if (pref[pref_len - 1] == ':') {
+		pref_len--;
+	}
+	for (size_t i = (ctx->ns[0].pref == NULL); i < ctx->nns; i++) {
+		if (strncmp(ctx->ns[i].pref, pref, pref_len) == 0) {
+			return ctx->ns + i;
+		}
+	}
+	return NULL;
+}
+
+static tx_nsid_t
+__tx_nsid_from_href(const char *href)
+{
+	size_t hlen = strlen(href);
+	const struct tx_nsuri_s *n = __nsiddify(href, hlen);
+	return n != NULL ? n->nsid : TX_NS_UNK;
+}
+
+static void __attribute__((unused))
+set_state_object(__ctx_t ctx, void *z)
+{
+	ctx->state->object = z;
+	return;
+}
+
+void
+ptx_reg_ns(__ctx_t ctx, const char *pref, const char *href)
+{
+	if (ctx->nns >= countof(ctx->ns)) {
+		error(0, "too many name spaces");
+		return;
+	}
+
+	if (UNLIKELY(href == NULL)) {
+		/* bollocks, user MUST be a twat */
+		return;
+	}
+
+	/* get us those lovely ns ids */
+	{
+		const tx_nsid_t nsid = __tx_nsid_from_href(href);
+
+		switch (nsid) {
+			size_t i;
+		case TX_NS_TWSXML_0_1:
+		case TX_NS_FIXML_5_0:
+		case TX_NS_FIXML_4_4:
+			if (UNLIKELY(ctx->ns[0].href != NULL)) {
+				i = ctx->nns++;
+				ctx->ns[i] = ctx->ns[0];
+			}
+			/* oh, it's our fave, make it the naught-th one */
+			ctx->ns[0].pref = (pref ? strdup(pref) : NULL);
+			ctx->ns[0].href = strdup(href);
+			ctx->ns[0].nsid = nsid;
+			break;
+
+		case TX_NS_UNK:
+		default:
+			i = ctx->nns++;
+			ctx->ns[i].pref = pref ? strdup(pref) : NULL;
+			ctx->ns[i].href = strdup(href);
+			ctx->ns[i].nsid = nsid;
+			break;
+		}
+	}
+	return;
+}
+
+
+
+static tx_aid_t
+__tx_aid_from_attr_l(const char *attr, size_t len)
+{
+	const struct tx_attr_s *a = tx_aiddify(attr, len);
+	return a ? a->aid : TX_ATTR_UNK;
+}
+
+static tx_aid_t
+sax_tx_aid_from_attr(const char *attr)
+{
+	size_t alen = strlen(attr);
+	const struct tx_attr_s *a = tx_aiddify(attr, alen);
+	return a ? a->aid : TX_ATTR_UNK;
+}
+#endif	/* HAVE_EXPAT_H */
+
+
+#if defined HAVE_EXPAT_H
+static void
+proc_TX_xmlns(__ctx_t ctx, const char *pref, const char *value)
+{
+	TX_DEBUG("reg'ging name space %s <- %s\n", pref, value);
+	ptx_reg_ns(ctx, pref, value);
+	return;
+}
+
+static void
+proc_UNK_attr(__ctx_t ctx, const char *attr, const char *value)
+{
+	const char *rattr = tag_massage(attr);
+	tx_aid_t aid;
+
+	if (UNLIKELY(rattr > attr && !ptx_pref_p(ctx, attr, rattr - attr))) {
+		aid = __tx_aid_from_attr_l(attr, rattr - attr - 1);
+	} else {
+		aid = sax_tx_aid_from_attr(rattr);
+	}
+
+	switch (aid) {
+	case TX_ATTR_XMLNS:
+		proc_TX_xmlns(ctx, rattr == attr ? NULL : rattr, value);
+		break;
+	default:
+		break;
+	}
+	return;
+}
+
+static void
+el_sta(void *clo, const char *elem, const char **attr)
+{
+	__ctx_t ctx = clo;
+	/* where the real element name starts, sans ns prefix */
+	const char *relem = tag_massage(elem);
+	ptx_ns_t ns = __pref_to_ns(ctx, elem, relem - elem);
+
+	if (UNLIKELY(ns == NULL)) {
+		TX_DEBUG("unknown prefix in tag %s\n", elem);
+		return;
+	}
+
+retry:
+	switch (ns->nsid) {
+	case TX_NS_TWSXML_0_1: {
+		sax_bo_TWSXML_elt(ctx, relem, attr);
+		break;
+	}
+
+	case TX_NS_FIXML_4_4:
+	case TX_NS_FIXML_5_0:
+		sax_bo_FIXML_elt(ctx, relem, attr);
+		break;
+
+	case TX_NS_UNK:
+		for (const char **ap = attr; ap && *ap; ap += 2) {
+			proc_UNK_attr(ctx, ap[0], ap[1]);
+		}
+		ns = ctx->ns;
+		goto retry;
+
+	default:
+		TX_DEBUG("unknown namespace %s (%s)\n", elem, ns->href);
+		break;
+	}
+	return;
+}
+
+static void
+el_end(void *clo, const char *elem)
+{
+	__ctx_t ctx = clo;
+	/* where the real element name starts, sans ns prefix */
+	const char *relem = tag_massage(elem);
+	ptx_ns_t ns = __pref_to_ns(ctx, elem, relem - elem);
+
+	switch (ns->nsid) {
+	case TX_NS_TWSXML_0_1:
+		sax_eo_TWSXML_elt(ctx, relem);
+		break;
+
+	case TX_NS_FIXML_4_4:
+	case TX_NS_FIXML_5_0:
+		sax_eo_FIXML_elt(ctx, relem);
+		break;
+
+	case TX_NS_UNK:
+	default:
+		TX_DEBUG("unknown namespace %s (%s)\n", elem, ns->href);
+		break;
+	}
+	return;
+}
+#endif	/* HAVE_EXPAT_H */
+
+
+/* public funs */
+#if defined HAVE_EXPAT_H
+int
+tws_deser_cont(
+	const char *xml, size_t len,
+	int(*cb)(tws_cont_t, void*), void *cbclo)
+{
+	XML_Parser hdl;
+	struct __ctx_s clo = {0};
+
+	if ((hdl = XML_ParserCreate(NULL)) == NULL) {
+		return -1;
+	}
+	/* register our callback */
+	clo.cont_cb = cb;
+	clo.cbclo = cbclo;
+
+	XML_SetElementHandler(hdl, el_sta, el_end);
+	XML_SetUserData(hdl, &clo);
+
+	if (XML_Parse(hdl, xml, len, XML_TRUE) == XML_STATUS_ERROR) {
+		TX_DEBUG("XML parser error\n");
+		return -1;
+	}
+
+	/* get rid of resources */
+	XML_ParserFree(hdl);
+	return 0;
+}
+
+#else  /* HAVE_EXPAT_H */
+int
+tws_deser_cont(
+	const char *UNUSED(xml), size_t UNUSED(len),
+	UNUSED(int(*cb)(tws_cont_t, void*)), void *UNUSED(cbclo))
+{
+	return -1;
+}
+#endif	/* HAVE_EXPAT_H */
+
+/* sdef.c ends here */

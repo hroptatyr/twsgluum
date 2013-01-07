@@ -1,0 +1,24 @@
+%{
+typedef struct tx_attr_s *tx_attr_t;
+
+#include "proto-tx-attr.h"
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name attr
+%define hash-function-name tx_aid_hash
+%define lookup-function-name tx_aiddify
+%null-strings
+/* we need this one as we plan on passing parts of a string */
+%compare-strncmp
+%enum
+
+struct tx_attr_s {
+	const char *attr;
+	tx_aid_t aid;
+};
+
+%%
+xmlns,	TX_ATTR_XMLNS
