@@ -1,0 +1,26 @@
+%{
+typedef struct tx_nsuri_s *tx_nsuri_t;
+
+#include "proto-tx-ns.h"
+
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name nsuri
+%define hash-function-name __nsid_hash
+%define lookup-function-name __nsiddify
+%null-strings
+%enum
+
+struct tx_nsuri_s {
+	const char *nsuri;
+	tx_nsid_t nsid;
+};
+
+%%
+http://www.ga-group.nl/twsxml-0.1,	TX_NS_TWSXML_0_1
+http://www.fixprotocol.org/FIXML-5-0,	TX_NS_FIXML_5_0
+http://www.fixprotocol.org/FIXML-4-4,	TX_NS_FIXML_4_4
+http://www.mddl.org/mddl/3.0-beta,	TX_NS_MDDL_3_0

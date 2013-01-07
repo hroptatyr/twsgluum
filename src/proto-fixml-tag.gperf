@@ -1,0 +1,26 @@
+%{
+typedef struct fixml_tag_s *fixml_tag_t;
+
+#include "proto-fixml-tag.h"
+
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name tag
+%define hash-function-name __fix_tid_hash
+%define lookup-function-name __fix_tiddify
+%null-strings
+%enum
+
+struct fixml_tag_s {
+	const char *tag;
+	fixml_tid_t tid;
+};
+
+%%
+Batch, FIX_TAG_BATCH
+FIXML, FIX_TAG_FIXML
+Instrmt, FIX_TAG_INSTRMT
+SecDef, FIX_TAG_SECDEF

@@ -1,0 +1,36 @@
+%{
+typedef struct fixml_attr_s *fixml_attr_t;
+
+#include "proto-fixml-attr.h"
+
+
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name attr
+%define hash-function-name __fix_aid_hash
+%define lookup-function-name __fix_aiddify
+%null-strings
+%enum
+
+struct fixml_attr_s {
+	const char *attr;
+	fixml_aid_t aid;
+};
+
+%%
+CFI, FIX_ATTR_CFI
+Ccy, FIX_ATTR_CCY
+Exch, FIX_ATTR_EXCH
+Mult, FIX_ATTR_MULT
+Prod, FIX_ATTR_PROD
+SecTyp, FIX_ATTR_SECTYP
+Sym, FIX_ATTR_SYM
+UOM, FIX_ATTR_UOM
+UOMQty, FIX_ATTR_UOMQTY
+r, FIX_ATTR_R
+s, FIX_ATTR_S
+v, FIX_ATTR_V
+xmlns,	FIX_ATTR_XMLNS

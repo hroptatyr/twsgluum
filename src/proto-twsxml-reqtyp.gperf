@@ -1,0 +1,26 @@
+%{
+typedef struct tws_xml_rtcell_s *tws_xml_rtcell_t;
+
+#include "proto-twsxml-reqtyp.h"
+
+%}
+%7bit
+%readonly-tables
+%enum
+%struct-type
+%define slot-name rt
+%define hash-function-name __rtid_hash
+%define lookup-function-name __rtiddify
+%null-strings
+%enum
+
+struct tws_xml_rtcell_s {
+	const char *rt;
+	tws_xml_req_typ_t rtid;
+};
+
+%%
+market_data, TWS_XML_REQ_TYP_MKT_DATA
+contract_details, TWS_XML_REQ_TYP_CON_DTLS,
+historical_data, TWS_XML_REQ_TYP_HIST_DATA
+place_order, TWS_XML_REQ_TYP_PLC_ORDER
