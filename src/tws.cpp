@@ -419,12 +419,7 @@ rset_tws(tws_t tws)
 static int
 tws_start(tws_t tws)
 {
-	int st;
-
-	if ((st = TWS_PRIV_CLI(tws)->handshake()) == 1) {
-		TWS_PRIV_CLI(tws)->reqCurrentTime();
-	}
-	return st;
+	return TWS_PRIV_CLI(tws)->handshake();
 }
 
 static int
@@ -505,11 +500,8 @@ tws_state(tws_t tws)
 	} else if (!__started_p(tws)) {
 		/* in the middle of a set-up */
 		return TWS_ST_SUP;
-	} else if (!TWS_PRIV_WRP(tws)->time) {
-		/* we always request the current time */
-		return TWS_ST_SUP;
 	} else if (!TWS_PRIV_WRP(tws)->next_oid) {
-		/* big bugger indeed */
+		/* we get the next_oid automatically */
 		return TWS_ST_SUP;
 	}
 	/* nothing else to assume */
