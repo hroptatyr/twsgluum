@@ -458,9 +458,10 @@ init_tws(int sock, int client)
 int
 fini_tws(tws_t tws)
 {
-	/* wipe our context off the face of this earth */
-	rset_tws(tws);
-
+	if (UNLIKELY(tws == NULL)) {
+		/* already finished */
+		return 0;
+	}
 	if (TWS_PRIV_CLI(tws)) {
 		/* perform API internal stopping routine */
 		tws_stop(tws);

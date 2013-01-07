@@ -172,6 +172,7 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		w->fd = -1;
 		w->data = NULL;
 		(void)fini_tws(ctx->tws);
+		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
 		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
@@ -423,6 +424,7 @@ main(int argc, char *argv[])
 	/* get rid of the tws intrinsics */
 	QUO_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
+	ctx->tws = NULL;
 	reco_cb(EV_A_ NULL, 0);
 
 	/* destroy the default evloop */
