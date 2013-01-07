@@ -38,6 +38,8 @@
 #define INCLUDED_quo_wrapper_cpp_
 #define ASPECT_WRAPPER_
 
+#include "quo-tws.h"
+
 void
 __wrapper::tickPrice(IB::TickerId id, IB::TickType fld, double pri, int)
 {
@@ -233,18 +235,21 @@ __wrapper::managedAccounts(const IB::IBString &ac)
 void
 __wrapper::error(const int id, const int code, const IB::IBString msg)
 {
+	::error(0, "ERRR %d %d %s", id, code, msg.c_str());
 	return;
 }
 
 void
 __wrapper::winError(const IB::IBString &str, int code)
 {
+	::error(0, "WERR %d %s", code, str.c_str());
 	return;
 }
 
 void
 __wrapper::connectionClosed(void)
 {
+	::error(0, "IBCB conn closed, no way to notify main loop");
 	return;
 }
 
