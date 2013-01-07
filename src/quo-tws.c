@@ -47,7 +47,6 @@
 #include <sys/time.h>
 /* for mmap */
 #include <sys/mman.h>
-#include <fcntl.h>
 #if defined HAVE_EV_H
 # include <ev.h>
 # undef EV_P
@@ -61,6 +60,7 @@
 /* the tws api */
 #include "quo-tws.h"
 #include "logger.h"
+#include "daemonise.h"
 #include "tws.h"
 #include "nifty.h"
 
@@ -285,44 +285,6 @@ sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 # pragma GCC diagnostic warning "-Wswitch-enum"
 #endif	/* __INTEL_COMPILER */
 
-static pid_t
-detach(void)
-{
-	int fd;
-	pid_t pid;
-
-	switch (pid = fork()) {
-	case -1:
-		return -1;
-	case 0:
-		break;
-	default:
-		/* i am the parent */
-		fprintf(stdout, "daemonisation successful %d\n", pid);
-		exit(0);
-	}
-
-	if (setsid() == -1) {
-		return -1;
-	}
-	/* close standard tty descriptors */
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
-	/* reattach them to /dev/null */
-	if (LIKELY((fd = open("/dev/null", O_RDWR, 0)) >= 0)) {
-		(void)dup2(fd, STDIN_FILENO);
-		(void)dup2(fd, STDOUT_FILENO);
-		(void)dup2(fd, STDERR_FILENO);
-	}
-#if defined DEBUG_FLAG
-	logerr = fopen("/tmp/quo-tws.log", "w");
-#else  /* !DEBUG_FLAG */
-	logerr = fdopen(fd, "w");
-#endif	/* DEBUG_FLAG */
-	return pid;
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -381,7 +343,7 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach() < 0) {
+	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
 		perror("daemonisation failed");
 		res = 1;
 		goto out;
