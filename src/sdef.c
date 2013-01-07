@@ -245,8 +245,9 @@ retry:
 		for (const char **ap = attr; ap && *ap; ap += 2) {
 			proc_UNK_attr(ctx, ap[0], ap[1]);
 		}
-		ns = ctx->ns;
-		goto retry;
+		if ((ns = ctx->ns)->nsid != TX_NS_UNK) {
+			goto retry;
+		}
 
 	default:
 		TX_DEBUG("unknown namespace %s (%s)\n", elem, ns->href);
