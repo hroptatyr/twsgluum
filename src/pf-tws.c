@@ -1,4 +1,4 @@
-/*** quo-tws.c -- quotes and trades from tws
+/*** pf-tws.c -- portfolio updates from tws
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -58,7 +58,7 @@
 #include <sys/utsname.h>
 
 /* the tws api */
-#include "quo-tws.h"
+#include "pf-tws.h"
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
@@ -70,10 +70,10 @@
 
 #if defined DEBUG_FLAG && !defined BENCHMARK
 # include <assert.h>
-# define QUO_DEBUG(args...)	fprintf(logerr, args)
+# define PF_DEBUG(args...)	fprintf(logerr, args)
 # define MAYBE_NOINLINE		__attribute__((noinline))
 #else  /* !DEBUG_FLAG */
-# define QUO_DEBUG(args...)
+# define PF_DEBUG(args...)
 # define assert(x)
 # define MAYBE_NOINLINE
 #endif	/* DEBUG_FLAG */
@@ -147,7 +147,7 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 	static char noop[1];
 	ctx_t ctx = w->data;
 
-	QUO_DEBUG("BANG  %x\n", rev);
+	PF_DEBUG("BANG  %x\n", rev);
 	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
@@ -156,7 +156,7 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		(void)fini_tws(ctx->tws);
 		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
-		QUO_DEBUG("AXAX  scheduling reconnect\n");
+		PF_DEBUG("AXAX  scheduling reconnect\n");
 		return;
 	}
 	/* otherwise go ahead and read things */
@@ -174,7 +174,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
-		QUO_DEBUG("FINI  %d\n", twsc->fd);
+		PF_DEBUG("FINI  %d\n", twsc->fd);
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
@@ -185,13 +185,13 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		return;
 	}
 
-	QUO_DEBUG("CONN  %d\n", s);
+	PF_DEBUG("CONN  %d\n", s);
 	twsc->data = ctx;
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
 	if (UNLIKELY((ctx->tws = init_tws(s, ctx->client)) == NULL)) {
-		QUO_DEBUG("DOWN  %d\n", s);
+		PF_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
@@ -208,10 +208,10 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
-	QUO_DEBUG("PREP\n");
+	PF_DEBUG("PREP\n");
 
 	st = tws_state(ctx->tws);
-	QUO_DEBUG("STAT  %u\n", st);
+	PF_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
 	case TWS_ST_DWN:
@@ -221,14 +221,14 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 			reco->data = ctx;
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
-			QUO_DEBUG("RECO\n");
+			PF_DEBUG("RECO\n");
 		}
 		break;
 	case TWS_ST_RDY:
 	case TWS_ST_SUP:
 		break;
 	default:
-		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		PF_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
 	return;
@@ -240,10 +240,10 @@ chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
-	QUO_DEBUG("CHCK\n");
+	PF_DEBUG("CHCK\n");
 
 	st = tws_state(ctx->tws);
-	QUO_DEBUG("STAT  %u\n", st);
+	PF_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_SUP:
 	case TWS_ST_RDY:
@@ -253,7 +253,7 @@ chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
 	case TWS_ST_DWN:
 		break;
 	default:
-		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		PF_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
 	return;
@@ -263,7 +263,7 @@ static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
-	QUO_DEBUG("UNLO\n");
+	PF_DEBUG("UNLO\n");
 	return;
 }
 
@@ -275,8 +275,8 @@ sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 # pragma GCC diagnostic ignored "-Wswitch"
 # pragma GCC diagnostic ignored "-Wswitch-enum"
 #endif /* __INTEL_COMPILER */
-#include "quo-tws-clo.h"
-#include "quo-tws-clo.c"
+#include "pf-tws-clo.h"
+#include "pf-tws-clo.c"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
 # pragma warning (default:181)
@@ -290,7 +290,7 @@ main(int argc, char *argv[])
 {
 	struct ctx_s ctx[1] = {{0}};
 	/* args */
-	struct quo_args_info argi[1];
+	struct pf_args_info argi[1];
 	/* use the default event loop unless you have special needs */
 	struct ev_loop *loop;
 	/* ev goodies */
@@ -306,7 +306,7 @@ main(int argc, char *argv[])
 	logerr = stderr;
 
 	/* parse the command line */
-	if (quo_parser(argc, argv, argi)) {
+	if (pf_parser(argc, argv, argi)) {
 		res = 1;
 		goto out;
 	}
@@ -343,7 +343,7 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
+	if (argi->daemonise_given && detach("/tmp/pf-tws.log") < 0) {
 		perror("daemonisation failed");
 		res = 1;
 		goto out;
@@ -366,7 +366,7 @@ main(int argc, char *argv[])
 	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
-	QUO_DEBUG("FINI\n");
+	PF_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
 	ctx->tws = NULL;
 	reco_cb(EV_A_ NULL, 0);
@@ -374,8 +374,8 @@ main(int argc, char *argv[])
 	/* destroy the default evloop */
 	ev_default_destroy();
 out:
-	quo_parser_free(argi);
+	pf_parser_free(argi);
 	return res;
 }
 
-/* quo-tws.c ends here */
+/* pf-tws.c ends here */
