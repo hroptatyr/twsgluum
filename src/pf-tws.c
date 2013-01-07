@@ -81,7 +81,7 @@
 typedef struct ctx_s *ctx_t;
 
 struct ctx_s {
-	void *tws;
+	struct tws_s tws[1];
 
 	/* static context */
 	const char *host;
@@ -154,7 +154,6 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		w->fd = -1;
 		w->data = NULL;
 		(void)fini_tws(ctx->tws);
-		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
 		PF_DEBUG("AXAX  scheduling reconnect\n");
 		return;
@@ -190,7 +189,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	if (UNLIKELY((ctx->tws = init_tws(s, ctx->client)) == NULL)) {
+	if (UNLIKELY(init_tws(ctx->tws, s, ctx->client) < 0)) {
 		PF_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -368,7 +367,6 @@ main(int argc, char *argv[])
 	/* get rid of the tws intrinsics */
 	PF_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
-	ctx->tws = NULL;
 	reco_cb(EV_A_ NULL, 0);
 
 	/* destroy the default evloop */
