@@ -59,6 +59,7 @@
 
 /* the tws api */
 #include "quo-tws.h"
+#include "quo-tws-private.h"
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
@@ -81,7 +82,7 @@
 typedef struct ctx_s *ctx_t;
 
 struct ctx_s {
-	void *tws;
+	struct tws_s tws[1];
 
 	/* static context */
 	const char *host;
@@ -130,6 +131,83 @@ out:
 
 
 static void
+fix_quot(quo_qq_t UNUSED(qq_unused), struct quo_s UNUSED(q))
+{
+	return;
+}
+
+
+static void
+pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
+{
+	struct quo_s q;
+
+	switch (what) {
+	case TWS_CB_PRE_PRICE:
+		switch (clo.tt) {
+			/* hardcoded non-sense here!!! */
+		case 1:
+		case 9:
+			q.typ = (quo_typ_t)clo.tt;
+			break;
+		case 2:
+		case 4:
+			q.typ = (quo_typ_t)(clo.tt + 1);
+			break;
+		default:
+			q.typ = QUO_TYP_UNK;
+			goto fucked;
+		}
+		q.idx = (uint16_t)clo.oid;
+		q.val = clo.val;
+		break;
+	case TWS_CB_PRE_SIZE:
+		switch (clo.tt) {
+		case 0:
+			q.typ = QUO_TYP_BSZ;
+			break;
+		case 3:
+		case 5:
+			q.typ = (quo_typ_t)(clo.tt + 1);
+			break;
+		case 8:
+			q.typ = QUO_TYP_VOL;
+			break;
+		default:
+			q.typ = QUO_TYP_UNK;
+			goto fucked;
+		}
+		q.idx = (uint16_t)clo.oid;
+		q.val = clo.val;
+		break;
+
+	case TWS_CB_PRE_CONT_DTL:
+		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
+		if (clo.oid && clo.data) {
+#if 0
+			if (INSTRMT(clo.oid)) {
+				tws_free_cont(INSTRMT(clo.oid));
+			}
+			if (SECDEF(clo.oid)) {
+				tws_free_sdef(SECDEF(clo.oid));
+			}
+			INSTRMT(clo.oid) = tws_sdef_make_cont(clo.data);
+			SECDEF(clo.oid) = tws_dup_sdef(clo.data);
+#endif
+		}
+	case TWS_CB_PRE_CONT_DTL_END:
+		break;
+
+	default:
+	fucked:
+		QUO_DEBUG("%p pre: what %u  oid %u  tt %u  data %p\n",
+			tws, what, clo.oid, clo.tt, clo.data);
+		return;
+	}
+	fix_quot(NULL, q);
+	return;
+}
+
 ev_io_shut(EV_P_ ev_io *w)
 {
 	int fd = w->fd;
@@ -154,7 +232,6 @@ twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
 		w->fd = -1;
 		w->data = NULL;
 		(void)fini_tws(ctx->tws);
-		ctx->tws = NULL;
 		/* we should set a timer here for retrying */
 		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
@@ -190,7 +267,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	if (UNLIKELY((ctx->tws = init_tws(s, ctx->client)) == NULL)) {
+	if (UNLIKELY(init_tws(ctx->tws, s, ctx->client) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -349,6 +426,8 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	/* prepare the context and the tws */
+	ctx->tws->pre_cb = pre_cb;
 	/* prepare for hard slavery */
 	prep->data = ctx;
 	ev_prepare_init(prep, prep_cb);
@@ -368,7 +447,6 @@ main(int argc, char *argv[])
 	/* get rid of the tws intrinsics */
 	QUO_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
-	ctx->tws = NULL;
 	reco_cb(EV_A_ NULL, 0);
 
 	/* destroy the default evloop */
