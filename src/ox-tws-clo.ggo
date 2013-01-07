@@ -1,0 +1,34 @@
+args "--unamed-opts --no-handle-error --long-help -a ox_args_info -f ox_parser"
+package "ox-tws"
+usage "ox-tws [OPTION]..."
+description "Populate order events from beef channel."
+
+option "daemonise" d
+	"Detach from tty and runs as daemon"
+	optional
+
+section "unserding options"
+option "port" p
+	"Multicast control channel port"
+	int default="8653" optional
+
+option "beef" -
+	"Multicast payload channel"
+	int optional
+
+section "TWS options"
+option "tws-host" -
+	"Host where the TWS is running (default: localhost)"
+	string typestr="HOSTNAME" optional
+
+option "tws-port" -
+	"Port number of the TWS (default: 7474)"
+	int typestr="PORT" optional
+
+option "tws-client-id" -
+	"TWS client connection id (default: current unix time)"
+	int optional
+
+option "tws-arccount" -
+	"TWS account name for multi-account set ups"
+	string typestr="NAME" optional

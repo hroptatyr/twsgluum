@@ -48,6 +48,21 @@ pf_tws_LDFLAGS += $(libev_LIBS)
 pf_tws_LDADD =
 pf_tws_LDADD += $(twsapi_LIBS)
 
+bin_PROGRAMS += ox-tws
+ox_tws_SOURCES = ox-tws.c ox-tws-clo.ggo ox-tws.h
+BUILT_SOURCES += ox-tws-clo.c ox-tws-clo.h
+ox_tws_SOURCES += tws.cpp tws.h
+ox_tws_SOURCES += logger.c logger.h
+ox_tws_SOURCES += daemonise.c daemonise.h
+ox_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_PF
+ox_tws_CPPFLAGS += $(twsapi_CFLAGS)
+ox_tws_CPPFLAGS += $(libev_CFLAGS)
+ox_tws_LDFLAGS = $(AM_LDFLAGS)
+ox_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
+ox_tws_LDFLAGS += $(libev_LIBS)
+ox_tws_LDADD =
+ox_tws_LDADD += $(twsapi_LIBS)
+
 EXTRA_DIST += empty-wrapper.cpp
 
 ## our rule for gengetopt
