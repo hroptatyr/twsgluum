@@ -59,6 +59,7 @@
 #include <sys/utsname.h>
 
 /* the tws api */
+#include "quo-tws.h"
 #include "tws.h"
 #include "nifty.h"
 
@@ -90,8 +91,7 @@ struct ctx_s {
 
 
 /* i/o and logging aspect */
-static void
-__attribute__((format(printf, 2, 3)))
+__attribute__((format(printf, 2, 3))) void
 error(int eno, const char *fmt, ...)
 {
 	va_list vap;

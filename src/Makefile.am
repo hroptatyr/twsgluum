@@ -16,7 +16,7 @@ noinst_HEADERS += nifty.h
 
 
 bin_PROGRAMS += quo-tws
-quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo
+quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo quo-tws.h
 BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
 quo_tws_SOURCES += tws.cpp tws.h
 quo_tws_CPPFLAGS = $(AM_CPPFLAGS)
