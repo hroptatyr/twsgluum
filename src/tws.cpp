@@ -497,7 +497,7 @@ tws_recv(tws_t tws)
 tws_st_t
 tws_state(tws_t tws)
 {
-	if (UNLIKELY(tws == NULL)) {
+	if (UNLIKELY(tws == NULL || TWS_PRIV_CLI(tws) == NULL)) {
 		return TWS_ST_UNK;
 	} else if (!__sock_ok_p(tws)) {
 		/* fucking great */
