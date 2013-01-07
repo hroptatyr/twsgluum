@@ -139,7 +139,7 @@ tws_sock(const char *host, short unsigned int port)
 	     ai != NULL &&
 		     ((s = socket(ai->ai_family, ai->ai_socktype, 0)) < 0 ||
 		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
-	     s = -1, ai = ai->ai_next);
+	     close(s), s = -1, ai = ai->ai_next);
 
 out:
 	freeaddrinfo(aires);
