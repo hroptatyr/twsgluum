@@ -458,14 +458,13 @@ init_tws(int sock, int client)
 int
 fini_tws(tws_t tws)
 {
-	/* we used to call tws_disconnect() here but that's ancient history
-	 * just like we don't call tws_connect() in tws_init() we won't call
-	 * tws_disconnect() here. */
-	tws_stop(tws);
 	/* wipe our context off the face of this earth */
 	rset_tws(tws);
 
 	if (TWS_PRIV_CLI(tws)) {
+		/* perform API internal stopping routine */
+		tws_stop(tws);
+
 		delete TWS_PRIV_CLI(tws);
 		TWS_PRIV_WRP(tws)->cli = NULL;
 	}
