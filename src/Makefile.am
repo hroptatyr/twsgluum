@@ -40,6 +40,7 @@ BUILT_SOURCES += proto-twsxml-reqtyp.c
 BUILT_SOURCES += proto-fixml-tag.c
 BUILT_SOURCES += proto-fixml-attr.c
 quo_tws_SOURCES += sdef-twsxml.cpp
+quo_tws_SOURCES += sdef-fixml.cpp
 quo_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_QUO
 quo_tws_CPPFLAGS += $(twsapi_CFLAGS)
 quo_tws_CPPFLAGS += $(libev_CFLAGS)
