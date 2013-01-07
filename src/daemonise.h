@@ -48,15 +48,6 @@ extern "C" {
 extern void *logerr;
 
 /**
- * Like perror() but for our log file. */
-extern __attribute__((format(printf, 2, 3))) void
-error(int eno, const char *fmt, ...);
-
-/**
- * For generic logging without errno indication. */
-#define logger(fmt, args...)	error(0, fmt, args)
-
-/**
  * Detach the process and open LOGFN as a file stream for logging. */
 extern pid_t detach(const char *logfn);
 

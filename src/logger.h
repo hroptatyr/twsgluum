@@ -53,7 +53,11 @@ error(int eno, const char *fmt, ...);
 
 /**
  * For generic logging without errno indication. */
-#define logger(fmt, args...)	error(0, fmt, args)
+#if !defined __cplusplus
+# define logger(args...)	error(0, args)
+#else  /* __cplusplus */
+# define logger(args...)	::error(0, args)
+#endif	/* __cplusplus */
 
 #if defined __cplusplus
 }
