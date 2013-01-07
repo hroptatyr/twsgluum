@@ -1,4 +1,4 @@
-/*** quo-tws.h -- quotes and trades from tws
+/*** logger.c -- helpers for logging
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,15 +34,30 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_quo_tws_h_
-#define INCLUDED_quo_tws_h_
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include <stdio.h>
+#include <string.h>
 
-#if defined __cplusplus
-extern "C" {
-#endif	/* __cplusplus */
+#include "logger.h"
 
-#if defined __cplusplus
+void *logerr;
+
+__attribute__((format(printf, 2, 3))) void
+error(int eno, const char *fmt, ...)
+{
+	va_list vap;
+	va_start(vap, fmt);
+	vfprintf(logerr, fmt, vap);
+	va_end(vap);
+	if (eno) {
+		fputc(':', logerr);
+		fputc(' ', logerr);
+		fputs(strerror(eno), logerr);
+	}
+	fputc('\n', logerr);
+	return;
 }
-#endif	/* __cplusplus */
 
-#endif	/* INCLUDED_quo_tws_h_ */
+/* logger.c ends here */

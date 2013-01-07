@@ -38,7 +38,7 @@
 #define INCLUDED_quo_wrapper_cpp_
 #define ASPECT_WRAPPER_
 
-#include "quo-tws.h"
+#include "logger.h"
 
 void
 __wrapper::tickPrice(IB::TickerId id, IB::TickType fld, double pri, int)

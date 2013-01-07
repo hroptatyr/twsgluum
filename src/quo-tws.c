@@ -60,6 +60,7 @@
 
 /* the tws api */
 #include "quo-tws.h"
+#include "logger.h"
 #include "tws.h"
 #include "nifty.h"
 
@@ -76,7 +77,6 @@
 # define assert(x)
 # define MAYBE_NOINLINE
 #endif	/* DEBUG_FLAG */
-void *logerr;
 
 typedef struct ctx_s *ctx_t;
 
@@ -88,24 +88,6 @@ struct ctx_s {
 	uint16_t port;
 	int client;
 };
-
-
-/* i/o and logging aspect */
-__attribute__((format(printf, 2, 3))) void
-error(int eno, const char *fmt, ...)
-{
-	va_list vap;
-	va_start(vap, fmt);
-	vfprintf(logerr, fmt, vap);
-	va_end(vap);
-	if (eno) {
-		fputc(':', logerr);
-		fputc(' ', logerr);
-		fputs(strerror(eno), logerr);
-	}
-	fputc('\n', logerr);
-	return;
-}
 
 
 /* sock helpers, should be somwhere else */

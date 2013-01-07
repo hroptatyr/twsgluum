@@ -1,4 +1,4 @@
-/*** quo-tws.h -- quotes and trades from tws
+/*** logger.h -- helpers for logging
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,15 +34,29 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_quo_tws_h_
-#define INCLUDED_quo_tws_h_
+#if !defined INCLUDED_logger_h_
+#define INCLUDED_logger_h_
+
+#include <stdarg.h>
 
 #if defined __cplusplus
 extern "C" {
 #endif	/* __cplusplus */
 
+/* this really is a FILE* */
+extern void *logerr;
+
+/**
+ * Like perror() but for our log file. */
+extern __attribute__((format(printf, 2, 3))) void
+error(int eno, const char *fmt, ...);
+
+/**
+ * For generic logging without errno indication. */
+#define logger(fmt, args...)	error(0, fmt, args)
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_quo_tws_h_ */
+#endif	/* INCLUDED_logger_h_ */

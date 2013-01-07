@@ -13,12 +13,14 @@ CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
 noinst_HEADERS += nifty.h
+noinst_HEADERS += logger.h
 
 
 bin_PROGRAMS += quo-tws
 quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo quo-tws.h
 BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
 quo_tws_SOURCES += tws.cpp tws.h
+quo_tws_SOURCES += logger.c logger.h
 quo_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_QUO
 quo_tws_CPPFLAGS += $(twsapi_CFLAGS)
 quo_tws_CPPFLAGS += $(libev_CFLAGS)
