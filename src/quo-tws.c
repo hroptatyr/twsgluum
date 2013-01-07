@@ -232,11 +232,14 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	switch (st) {
 	case TWS_ST_UNK:
 	case TWS_ST_DWN:
-		/* start the reconnection timer */
-		reco->data = ctx;
-		ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
-		ev_timer_start(EV_A_ reco);
-		QUO_DEBUG("RECO\n");
+		/* is there a timer already? */
+		if (reco->data == NULL) {
+			/* start the reconnection timer */
+			reco->data = ctx;
+			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
+			ev_timer_start(EV_A_ reco);
+			QUO_DEBUG("RECO\n");
+		}
 		break;
 	case TWS_ST_RDY:
 	case TWS_ST_SUP:
