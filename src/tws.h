@@ -264,6 +264,14 @@ extern tws_st_t tws_state(tws_t);
  * Request security reference data of the contract C. */
 extern int tws_req_sdef(tws_t, const void *c);
 
+/**
+ * Subscribe to quote update. */
+extern tws_oid_t tws_sub_quo(tws_t, tws_const_sdef_t c);
+
+/**
+ * Unsubscribe from quote update. */
+extern int tws_rem_quo(tws_t, tws_oid_t);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */

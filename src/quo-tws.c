@@ -41,6 +41,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 /* for gmtime_r */
 #include <time.h>
 /* for gettimeofday() */
@@ -63,6 +64,7 @@
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
+#include "sdef.h"
 #include "nifty.h"
 
 #if defined __INTEL_COMPILER
@@ -88,6 +90,9 @@ struct ctx_s {
 	const char *host;
 	uint16_t port;
 	int client;
+
+	unsigned int nsubf;
+	const char *const *subf;
 };
 
 
@@ -184,16 +189,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	case TWS_CB_PRE_CONT_DTL:
 		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
-#if 0
-			if (INSTRMT(clo.oid)) {
-				tws_free_cont(INSTRMT(clo.oid));
-			}
-			if (SECDEF(clo.oid)) {
-				tws_free_sdef(SECDEF(clo.oid));
-			}
-			INSTRMT(clo.oid) = tws_sdef_make_cont(clo.data);
-			SECDEF(clo.oid) = tws_dup_sdef(clo.data);
-#endif
+			tws_sub_quo(tws, clo.data);
 		}
 	case TWS_CB_PRE_CONT_DTL_END:
 		break;
@@ -208,6 +204,46 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	return;
 }
 
+static int
+__sub_sdef(tws_cont_t ins, void *clo)
+{
+/* subscribe to INS
+ * we only request security definitions here and upon successful
+ * definition responses we subscribe */
+	tws_t tws = clo;
+
+	QUO_DEBUG("SUBC %p\n", ins);
+	if (tws_req_sdef(tws, ins) < 0) {
+		logger("cannot acquire secdefs of %p", ins);
+	}
+	return 0;
+}
+
+static void
+init_subs(tws_t tws, const char *file)
+{
+#define PR	(PROT_READ)
+#define MS	(MAP_SHARED)
+	void *fp;
+	int fd;
+	struct stat st;
+	ssize_t fsz;
+
+	if (stat(file, &st) < 0 || (fsz = st.st_size) < 0) {
+		error(errno, "subscription file %s invalid", file);
+	} else if ((fd = open(file, O_RDONLY)) < 0) {
+		error(errno, "cannot read subscription file %s", file);
+	} else if ((fp = mmap(NULL, fsz, PR, MS, fd, 0)) == MAP_FAILED) {
+		error(errno, "cannot read subscription file %s", file);
+	} else {
+		QUO_DEBUG("SUBS\n");
+		tws_deser_cont(fp, fsz, __sub_sdef, tws);
+	}
+	return;
+}
+
+
+static void
 ev_io_shut(EV_P_ ev_io *w)
 {
 	int fd = w->fd;
@@ -282,6 +318,7 @@ static void
 prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 {
 	static ev_timer reco[1];
+	static tws_st_t old_st;
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
@@ -302,12 +339,18 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		}
 		break;
 	case TWS_ST_RDY:
+		if (old_st != TWS_ST_RDY) {
+			for (unsigned int i = 0; i < ctx->nsubf; i++) {
+				init_subs(ctx->tws, ctx->subf[i]);
+			}
+		}
 	case TWS_ST_SUP:
 		break;
 	default:
 		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
+	old_st = st;
 	return;
 }
 
@@ -407,6 +450,10 @@ main(int argc, char *argv[])
 		(void)gettimeofday(now, NULL);
 		ctx->client = now->tv_sec;
 	}
+
+	/* make sure we know where to find the subscription files */
+	ctx->nsubf = argi->inputs_num;
+	ctx->subf = argi->inputs;
 
 	/* initialise the main loop */
 	loop = ev_default_loop(EVFLAG_AUTO);
