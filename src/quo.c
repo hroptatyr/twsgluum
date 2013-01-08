@@ -225,7 +225,7 @@ quoq_add(quoq_t qq, struct quo_s q)
 		qi->q = tgt;
 		qi->q.subtyp = 0UL;
 		gq_push_tail(qq->sbuf, (gq_item_t)qi);
-		QUO_DEBUG("pushed %p\n", qi);
+		QUO_DEBUG("PUSH QQ %p\n", qi);
 	}
 	return;
 }
