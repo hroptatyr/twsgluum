@@ -197,7 +197,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 		q.idx = (uint16_t)clo.oid;
 		q.val = clo.val;
 		QUO_DEBUG("TICK: what %u  oid %u  tt %u  data %p\n",
-			  what, clo.oid, clo.tt, clo.data);
+			what, clo.oid, clo.tt, clo.data);
 		quoq_add(((ctx_t)tws)->qq, q);
 		break;
 	}
@@ -217,8 +217,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 
 	default:
 	fucked:
-		QUO_DEBUG("%p pre: what %u  oid %u  tt %u  data %p\n",
-			tws, what, clo.oid, clo.tt, clo.data);
+		QUO_DEBUG("FUCK pre: what %u  oid %u  tt %u  data %p\n",
+			what, clo.oid, clo.tt, clo.data);
 		break;
 	}
 	return;
