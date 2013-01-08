@@ -44,6 +44,16 @@
 extern "C" {
 #endif	/* __cplusplus */
 
+#if defined STATIC_GQ_GUTS
+# undef DECLF
+# undef DEFUN
+# define DECLF		static
+# define DEFUN		static __attribute__((unused))
+#elif !defined DECLF
+# define DECLF		extern
+# define DEFUN
+#endif	/* DECLF */
+
 /* generic queues */
 typedef struct gq_s *gq_t;
 typedef struct gq_ll_s *gq_ll_t;
@@ -69,13 +79,13 @@ struct gq_s {
 };
 
 
-extern ptrdiff_t init_gq(gq_t, size_t mbsz, size_t at_least);
-extern void fini_gq(gq_t);
-extern void gq_rbld_ll(gq_ll_t dll, ptrdiff_t);
+DECLF ptrdiff_t init_gq(gq_t, size_t mbsz, size_t at_least);
+DECLF void fini_gq(gq_t);
+DECLF void gq_rbld_ll(gq_ll_t dll, ptrdiff_t);
 
-extern gq_item_t gq_pop_head(gq_ll_t);
-extern void gq_push_tail(gq_ll_t, gq_item_t);
-extern void gq_pop_item(gq_ll_t dll, gq_item_t i);
+DECLF gq_item_t gq_pop_head(gq_ll_t);
+DECLF void gq_push_tail(gq_ll_t, gq_item_t);
+DECLF void gq_pop_item(gq_ll_t dll, gq_item_t i);
 
 #if defined __cplusplus
 }

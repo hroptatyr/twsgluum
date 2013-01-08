@@ -61,7 +61,7 @@ gq_nmemb(size_t mbsz, size_t n)
 	return (n * mbsz + (pgsz - 1)) & ~(pgsz - 1);
 }
 
-void
+DEFUN void
 gq_rbld_ll(gq_ll_t dll, ptrdiff_t df)
 {
 	if (UNLIKELY(df == 0)) {
@@ -104,7 +104,7 @@ gq_rbld(gq_t q, gq_item_t nu_ref, size_t mbsz)
 	return df;
 }
 
-ptrdiff_t
+DEFUN ptrdiff_t
 init_gq(gq_t q, size_t mbsz, size_t at_least)
 {
 	size_t nusz = gq_nmemb(mbsz, at_least);
@@ -167,7 +167,7 @@ init_gq(gq_t q, size_t mbsz, size_t at_least)
 	return res;
 }
 
-void
+DEFUN void
 fini_gq(gq_t q)
 {
 	if (q->items) {
@@ -178,7 +178,7 @@ fini_gq(gq_t q)
 	return;
 }
 
-gq_item_t
+DEFUN gq_item_t
 gq_pop_head(gq_ll_t dll)
 {
 	gq_item_t res;
@@ -191,7 +191,7 @@ gq_pop_head(gq_ll_t dll)
 	return res;
 }
 
-void
+DEFUN void
 gq_push_tail(gq_ll_t dll, gq_item_t i)
 {
 	if (dll->ilst) {
@@ -208,7 +208,7 @@ gq_push_tail(gq_ll_t dll, gq_item_t i)
 	return;
 }
 
-void
+DEFUN void
 gq_pop_item(gq_ll_t dll, gq_item_t ip)
 {
 	if (ip->prev) {
