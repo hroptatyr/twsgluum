@@ -135,7 +135,7 @@ q30_sl1t_typ(q30_t q)
 static unsigned int
 q30_sl1t_idx(q30_t q)
 {
-	return 0U;
+	return q.idx;
 }
 
 static inline int
