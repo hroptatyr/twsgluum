@@ -39,6 +39,7 @@
 #endif	/* HAVE_CONFIG_H */
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/time.h>
 #if defined HAVE_UTERUS_UTERUS_H
 # include <uterus/uterus.h>
 # include <uterus/m30.h>
@@ -124,16 +125,45 @@ q30_price_typ_p(q30_t q)
 	return q.subtyp == 0U;
 }
 
-static inline __attribute__((unused)) unsigned int
+static inline unsigned int
 q30_sl1t_typ(q30_t q)
 {
+/* q's typ slot was designed to coincide with ute's sl1t types */
 	return q.typ / 2 + SL1T_TTF_BID;
+}
+
+static unsigned int
+q30_sl1t_idx(q30_t q)
+{
+	return 0U;
 }
 
 static inline int
 matches_q30_p(quo_qqq_t cell, q30_t q)
 {
 	return cell->t.idx == q.idx && cell->t.suptyp == q.suptyp;
+}
+
+
+/* uterus glue */
+static int
+fill_sl1t(struct sl1t_s tgt[static 1], quo_qqq_t qi)
+{
+	unsigned int tix;
+	unsigned int ttf;
+
+	if (UNLIKELY((tix = q30_sl1t_idx(qi->t)) == 0U)) {
+		return -1;
+	} else if (UNLIKELY((ttf = q30_sl1t_typ(qi->t)) == SCOM_TTF_UNK)) {
+		return -1;
+	}
+
+	sl1t_set_ttf(tgt, (uint16_t)ttf);
+	sl1t_set_tblidx(tgt, (uint16_t)tix);
+
+	tgt->pri = qi->p.u;
+	tgt->qty = qi->q.u;
+	return 0;
 }
 
 
@@ -191,9 +221,23 @@ free_qqq(quoq_t qq, quo_qqq_t q)
 }
 
 static quo_qqq_t
+pop_qqq(quoq_t qq)
+{
+	return (quo_qqq_t)gq_pop_head(qq->sbuf);
+}
+
+static void
+bang_qqq(quoq_t qq, quo_qqq_t q)
+{
+/* put q to price-quote list of qq */
+	gq_push_tail(qq->pbuf, (gq_item_t)q);
+	return;
+}
+
+static quo_qqq_t
 find_p_cell(gq_ll_t lst, q30_t tgt)
 {
-	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		quo_qqq_t qp = (void*)ip;
 
 		if (matches_q30_p(qp, tgt) &&
@@ -271,7 +315,67 @@ quoq_add(quoq_t qq, struct quo_s q)
 		qi->p = val;
 	}
 	gq_push_tail(qq->sbuf, (gq_item_t)qi);
-	QUO_DEBUG("PUSH QQ %p  %u %u\n", qi, qi->p.u, qi->q.u);
+	return;
+}
+
+void
+quoq_flush(quoq_t qq)
+{
+	quo_qqq_t qi;
+
+	while ((qi = pop_qqq(qq)) != NULL) {
+		quo_qqq_t qp;
+
+		QUO_DEBUG("FLSH %u %u %i %i\n",
+			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
+
+		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
+			qp->p = qi->p;
+			qp->q = qi->q;
+			free_qqq(qq, qi);
+		} else {
+			bang_qqq(qq, qi);
+		}
+	}
+	return;
+}
+
+void
+quoq_flush_cb(quoq_t qq, void(*cb)(const void*, void*), void *clo)
+{
+	struct timeval now[1];
+	struct sl1t_s l1t[1];
+	quo_qqq_t qi;
+
+	/* time */
+	gettimeofday(now, NULL);
+
+	/* populate l1t somewhat */
+	sl1t_set_stmp_sec(l1t, now->tv_sec);
+	sl1t_set_stmp_msec(l1t, now->tv_usec / 1000);
+
+	while ((qi = pop_qqq(qq)) != NULL) {
+		quo_qqq_t qp;
+
+		QUO_DEBUG("FLSH %u %u %i %i\n",
+			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
+
+		if (fill_sl1t(l1t, qi) < 0) {
+			goto free;
+		}
+
+		/* call the callback */
+		cb(l1t, clo);
+
+		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
+			qp->p = qi->p;
+			qp->q = qi->q;
+		free:
+			free_qqq(qq, qi);
+		} else {
+			bang_qqq(qq, qi);
+		}
+	}
 	return;
 }
 

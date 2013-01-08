@@ -76,6 +76,15 @@ extern void free_quoq(quoq_t q);
  * Add Q to the quote queue QQ. */
 extern void quoq_add(quoq_t qq, struct quo_s q);
 
+/**
+ * Flush ticks on the queue QQ. */
+extern void quoq_flush(quoq_t qq);
+
+/**
+ * Convert ticks on the queue QQ to uterus sl1t. */
+extern void
+quoq_flush_cb(quoq_t qq, void(*cb)(const void*, void*), void *clo);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
