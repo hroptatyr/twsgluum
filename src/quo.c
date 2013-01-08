@@ -50,9 +50,10 @@
 #endif	/* HAVE_UTERUS_UTERUS_H || HAVE_UTERUS_H */
 
 #include "quo.h"
-#include "gq.h"
 #include "nifty.h"
 #include "logger.h"
+#define STATIC_GQ_GUTS
+#include "gq.h"
 
 #if defined DEBUG_FLAG && !defined BENCHMARK
 # include <assert.h>
