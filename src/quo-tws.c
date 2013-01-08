@@ -163,37 +163,28 @@ static void
 pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 {
 /* called from tws api for pre messages */
-	struct quo_s q;
 
 	switch (what) {
 	case TWS_CB_PRE_PRICE:
+	case TWS_CB_PRE_SIZE: {
+		struct quo_s q;
+
 		switch (clo.tt) {
 			/* hardcoded non-sense here!!! */
-		case 1:
-		case 9:
-			q.typ = (quo_typ_t)clo.tt;
-			break;
-		case 2:
-		case 4:
-			q.typ = (quo_typ_t)(clo.tt + 1);
-			break;
-		default:
-			q.typ = QUO_TYP_UNK;
-			goto fucked;
-		}
-		q.idx = (uint16_t)clo.oid;
-		q.val = clo.val;
-		break;
-	case TWS_CB_PRE_SIZE:
-		switch (clo.tt) {
-		case 0:
+		case 0:		/* size */
 			q.typ = QUO_TYP_BSZ;
 			break;
-		case 3:
-		case 5:
+		case 1:		/* price */
+		case 9:		/* price */
+			q.typ = (quo_typ_t)clo.tt;
+			break;
+		case 2:		/* price */
+		case 4:		/* price */
+		case 3:		/* size */
+		case 5:		/* size */
 			q.typ = (quo_typ_t)(clo.tt + 1);
 			break;
-		case 8:
+		case 8:		/* size */
 			q.typ = QUO_TYP_VOL;
 			break;
 		default:
@@ -204,25 +195,25 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 		q.val = clo.val;
 		QUO_DEBUG("TICK: what %u  oid %u  tt %u  data %p\n",
 			  what, clo.oid, clo.tt, clo.data);
+		quoq_add(((ctx_t)tws)->qq, q);
 		break;
+	}
 
 	case TWS_CB_PRE_CONT_DTL:
 		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
 			tws_sub_quo(tws, clo.data);
 		}
+		break;
 	case TWS_CB_PRE_CONT_DTL_END:
-		return;
+		break;
 
 	default:
 	fucked:
 		QUO_DEBUG("%p pre: what %u  oid %u  tt %u  data %p\n",
 			tws, what, clo.oid, clo.tt, clo.data);
-		return;
+		break;
 	}
-
-	/* must only be reached for actual ticks */
-	quoq_add(((ctx_t)tws)->qq, q);
 	return;
 }
 
@@ -231,7 +222,8 @@ __sub_sdef(tws_cont_t ins, void *clo)
 {
 /* subscribe to INS
  * we only request security definitions here and upon successful
- * definition responses we subscribe */
+ * definition responses we subscribe
+ * those responses will show up in pre_cb() though */
 	tws_t tws = clo;
 
 	QUO_DEBUG("SUBC %p\n", ins);
