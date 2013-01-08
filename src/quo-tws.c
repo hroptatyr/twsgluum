@@ -142,9 +142,31 @@ fix_quot(quo_qq_t UNUSED(qq_unused), struct quo_s UNUSED(q))
 }
 
 
+/* tws interaction */
+static void
+infra_cb(tws_t tws, tws_cb_t what, struct tws_infra_clo_s clo)
+{
+/* called from tws api for infra messages */
+	switch (what) {
+	case TWS_CB_INFRA_ERROR:
+		QUO_DEBUG("tws %p: oid %u  code %u: %s\n",
+			tws, clo.oid, clo.code, (const char*)clo.data);
+		break;
+	case TWS_CB_INFRA_CONN_CLOSED:
+		QUO_DEBUG("tws %p: connection closed\n", tws);
+		break;
+	default:
+		QUO_DEBUG("%p infra: what %u  oid %u  code %u  data %p\n",
+			tws, what, clo.oid, clo.code, clo.data);
+		break;
+	}
+	return;
+}
+
 static void
 pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 {
+/* called from tws api for pre messages */
 	struct quo_s q;
 
 	switch (what) {
@@ -184,6 +206,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 		}
 		q.idx = (uint16_t)clo.oid;
 		q.val = clo.val;
+		QUO_DEBUG("TICK: what %u  oid %u  tt %u  data %p\n",
+			  what, clo.oid, clo.tt, clo.data);
 		break;
 
 	case TWS_CB_PRE_CONT_DTL:
@@ -475,6 +499,7 @@ main(int argc, char *argv[])
 
 	/* prepare the context and the tws */
 	ctx->tws->pre_cb = pre_cb;
+	ctx->tws->infra_cb = infra_cb;
 	/* prepare for hard slavery */
 	prep->data = ctx;
 	ev_prepare_init(prep, prep_cb);
