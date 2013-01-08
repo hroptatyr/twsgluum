@@ -93,6 +93,9 @@ struct ctx_s {
 
 	unsigned int nsubf;
 	const char *const *subf;
+
+	/* quote queue */
+	quoq_t qq;
 };
 
 
@@ -219,7 +222,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	}
 
 	/* must only be reached for actual ticks */
-	fix_quot(NULL, q);
+	quoq_add(((ctx_t)tws)->qq, q);
 	return;
 }
 
@@ -492,6 +495,9 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	/* get ourselves a quote queue */
+	ctx->qq = make_quoq();
+
 	/* prepare the context and the tws */
 	ctx->tws->pre_cb = pre_cb;
 	ctx->tws->infra_cb = infra_cb;
@@ -515,6 +521,9 @@ main(int argc, char *argv[])
 	QUO_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
 	reco_cb(EV_A_ NULL, 0);
+
+	/* finalise quote queue */
+	free_quoq(ctx->qq);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
