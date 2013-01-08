@@ -72,10 +72,10 @@ typedef struct q30_s q30_t;
 struct q30_s {
 	union {
 		struct {
-			size_t subtyp:1;
-			size_t:1;
+			uint32_t subtyp:1;
+			uint32_t suptyp:31;
 		};
-		size_t typ:2;
+		uint32_t typ:32;
 	};
 	uint32_t idx;
 };
@@ -84,19 +84,23 @@ struct q30_s {
 struct quo_qqq_s {
 	struct gq_item_s i;
 
-	/* pointer into our quotes array */
-	q30_t q;
+	q30_t t;
+	m30_t p;
+	m30_t q;
 };
 
 struct quoq_s {
 	struct gq_s q[1];
+	/* stuff to send to the wire */
 	struct gq_ll_s sbuf[1];
+	/* price cells */
+	struct gq_ll_s pbuf[1];
 };
 
 
 /* the quotes array */
 static inline q30_t
-make_q30(uint16_t iidx, quo_typ_t t)
+make_q30(uint32_t iidx, quo_typ_t t)
 {
 #if defined HAVE_ANON_STRUCTS_INIT
 	if (LIKELY(t >= QUO_TYP_BID && t <= QUO_TYP_ASZ)) {
@@ -114,22 +118,22 @@ make_q30(uint16_t iidx, quo_typ_t t)
 #endif	/* HAVE_ANON_STRUCTS_INIT */
 }
 
-static inline __attribute__((unused)) uint16_t
-q30_idx(q30_t q)
+static inline __attribute__((pure)) int
+q30_price_typ_p(q30_t q)
 {
-	return (uint16_t)q.idx;
-}
-
-static inline __attribute__((unused)) quo_typ_t
-q30_typ(q30_t q)
-{
-	return (quo_typ_t)q.typ;
+	return q.subtyp == 0U;
 }
 
 static inline __attribute__((unused)) unsigned int
 q30_sl1t_typ(q30_t q)
 {
-	return q30_typ(q) / 2 + SL1T_TTF_BID;
+	return q.typ / 2 + SL1T_TTF_BID;
+}
+
+static inline int
+matches_q30_p(quo_qqq_t cell, q30_t q)
+{
+	return cell->t.idx == q.idx && cell->t.suptyp == q.suptyp;
 }
 
 
@@ -141,22 +145,25 @@ check_q(quoq_t qq)
 {
 #if defined DEBUG_FLAG
 	/* count all items */
-	size_t ni = 0;
+	size_t ni;
 
+	ni = 0;
 	for (gq_item_t ip = qq->q->free->i1st; ip; ip = ip->next, ni++);
 	for (gq_item_t ip = qq->sbuf->i1st; ip; ip = ip->next, ni++);
+	for (gq_item_t ip = qq->pbuf->i1st; ip; ip = ip->next, ni++);
 	assert(ni == qq->q->nitems / sizeof(struct quo_qqq_s));
 
 	ni = 0;
 	for (gq_item_t ip = qq->q->free->ilst; ip; ip = ip->prev, ni++);
 	for (gq_item_t ip = qq->sbuf->ilst; ip; ip = ip->prev, ni++);
+	for (gq_item_t ip = qq->pbuf->ilst; ip; ip = ip->prev, ni++);
 	assert(ni == qq->q->nitems / sizeof(struct quo_qqq_s));
 #endif	/* DEBUG_FLAG */
 	return;
 }
 
 static quo_qqq_t
-pop_q(quoq_t qq)
+make_qqq(quoq_t qq)
 {
 	quo_qqq_t res;
 
@@ -165,7 +172,7 @@ pop_q(quoq_t qq)
 		ptrdiff_t df;
 
 		assert(qq->q->free->ilst == NULL);
-		QUO_DEBUG("QQ RESIZE -> %zu\n", nitems + 64);
+		QUO_DEBUG("RESZ QQ -> %zu\n", nitems + 64);
 		df = init_gq(qq->q, sizeof(*res), nitems + 64);
 		gq_rbld_ll(qq->sbuf, df);
 		check_q(qq);
@@ -174,6 +181,28 @@ pop_q(quoq_t qq)
 	res = (void*)gq_pop_head(qq->q->free);
 	memset(res, 0, sizeof(*res));
 	return res;
+}
+
+static void
+free_qqq(quoq_t qq, quo_qqq_t q)
+{
+	gq_push_tail(qq->q->free, (gq_item_t)q);
+	return;
+}
+
+static quo_qqq_t
+find_p_cell(gq_ll_t lst, q30_t tgt)
+{
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
+		quo_qqq_t qp = (void*)ip;
+
+		if (matches_q30_p(qp, tgt) &&
+		    q30_price_typ_p(qp->t)) {
+			/* yay */
+			return qp;
+		}
+	}
+	return NULL;
 }
 
 
@@ -195,38 +224,54 @@ free_quoq(quoq_t q)
 void
 quoq_add(quoq_t qq, struct quo_s q)
 {
-/* shall we rely on c++ code passing us a pointer we handed out earlier? */
+	quo_qqq_t qi;
 	q30_t tgt;
+	m30_t val;
 
-	/* use the dummy ute file to do the sym2idx translation */
-	if (q.idx == 0) {
+	if (!(tgt = make_q30(q.idx, q.typ)).idx) {
 		return;
-	} else if (!(tgt = make_q30(q.idx, q.typ)).idx) {
-		return;
-#if 0
-/* subject to subscription handling */
-	} else if (q.idx > subs.nsubs) {
-		/* that's actually so fatal I wanna vomit
-		 * that means IB sent us ticker ids we've never requested */
-		return;
-#endif
 	}
 
-#if 0
-/* subject to subscription handling */
-	/* only when the coffee is roasted to perfection:
-	 * update the slot TGT ... */
-	subs.quos[tgt.idx - 1][tgt.typ] = ffff_m30_get_d(q.val);
-#endif
-	/* ... and push a reminder on the queue */
-	{
-		quo_qqq_t qi = pop_q(qq);
+	/* just to relieve inlining pressure */
+	val = ffff_m30_get_d(q.val);
+	/* and some more */
+	qi = make_qqq(qq);
 
-		qi->q = tgt;
-		qi->q.subtyp = 0UL;
-		gq_push_tail(qq->sbuf, (gq_item_t)qi);
-		QUO_DEBUG("PUSH QQ %p\n", qi);
+	if (!q30_price_typ_p(tgt)) {
+		/* find the last price */
+		quo_qqq_t qp;
+		m30_t pv;
+
+		/* try the current queue first */
+		if (LIKELY((qp = find_p_cell(qq->sbuf, tgt)) != NULL)) {
+			/* just add the bugger if q slot is unset */
+			if (qp->q.u == 0U) {
+				qp->q = val;
+				free_qqq(qq, qi);
+				return;
+			}
+			/* otherwise clone the whole thing */
+			goto clone;
+		}
+		/* try the price queue next */
+		if ((qp = find_p_cell(qq->pbuf, tgt)) != NULL) {
+		clone:
+			/* clone the thing right away */
+			tgt = qp->t;
+			pv = qp->p;
+		} else {
+			/* entirely new to us */
+			pv.u = 0U;
+		}
+		qi->t = tgt;
+		qi->p = pv;
+		qi->q = val;
+	} else {
+		qi->t = tgt;
+		qi->p = val;
 	}
+	gq_push_tail(qq->sbuf, (gq_item_t)qi);
+	QUO_DEBUG("PUSH QQ %p  %u %u\n", qi, qi->p.u, qi->q.u);
 	return;
 }
 
