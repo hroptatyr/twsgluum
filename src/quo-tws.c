@@ -57,6 +57,15 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/utsname.h>
+#include <unserding/unserding.h>
+#include <unserding/protocore.h>
+#if defined HAVE_UTERUS_UTERUS_H
+# include <uterus/uterus.h>
+#elif defined HAVE_UTERUS_H
+# include <uterus.h>
+#else
+# error uterus headers are mandatory
+#endif	/* HAVE_UTERUS_UTERUS_H || HAVE_UTERUS_H */
 
 /* the tws api */
 #include "quo-tws.h"
@@ -138,6 +147,104 @@ tws_sock(const char *host, short unsigned int port)
 out:
 	freeaddrinfo(aires);
 	return s;
+}
+
+
+/* unserding goodies */
+#define BRAG_INTV	(10)
+#define UTE_QMETA	0x7572
+
+/* ute services come in 2 flavours little endian "ut" and big endian "UT" */
+#define UTE_CMD_LE	0x7574
+#define UTE_CMD_BE	0x5554
+#if defined WORDS_BIGENDIAN
+# define UTE_CMD	UTE_CMD_BE
+#else  /* !WORDS_BIGENDIAN */
+# define UTE_CMD	UTE_CMD_LE
+#endif	/* WORDS_BIGENDIAN */
+
+static size_t pno = 0;
+
+static inline void
+udpc_seria_rewind(udpc_seria_t ser)
+{
+	struct udproto_hdr_s *hdr;
+
+	ser->msgoff = 0;
+	hdr = (void*)(ser->msg - UDPC_HDRLEN);
+	hdr->cno_pno = pno++;
+	return;
+}
+
+static void
+ud_chan_send_ser_all(udpc_seria_t UNUSED(ser))
+{
+	QUO_DEBUG("CHAN\n");
+	return;
+}
+
+static bool
+udpc_seria_fits_sl1t_p(udpc_seria_t ser, const_sl1t_t UNUSED(q))
+{
+	/* super quick check if we can afford to take it the pkt on
+	 * we need roughly 16 bytes */
+	if (ser->msgoff + sizeof(*q) > ser->len) {
+		return false;
+	}
+	return true;
+}
+
+static inline void
+udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
+{
+	memcpy(ser->msg + ser->msgoff, q, sizeof(*q));
+	ser->msgoff += sizeof(*q);
+	return;
+}
+
+static void
+flush_cb(const_sl1t_t l1t, struct udpc_seria_s ser[static 2])
+{
+	if (UNLIKELY(!udpc_seria_fits_sl1t_p(ser + 1, l1t))) {
+		ud_chan_send_ser_all(ser + 0);
+		ud_chan_send_ser_all(ser + 1);
+		udpc_seria_rewind(ser + 0);
+		udpc_seria_rewind(ser + 1);
+	}
+
+	udpc_seria_add_sl1t(ser + 1, l1t);
+#if 0
+	/* i think it's worth checking when we last disseminated this */
+	if (now->tv_sec - subs.last_dsm[tblidx - 1] >= BRAG_INTV) {
+		brag(ser, tblidx);
+		subs.last_dsm[tblidx - 1] = now->tv_sec;
+	}
+#endif
+	return;
+}
+
+static void
+quoq_flush_maybe(ctx_t ctx)
+{
+	struct udpc_seria_s ser[2];
+	char buf[UDPC_PKTLEN];
+	char dsm[UDPC_PKTLEN];
+
+#define PKT(x)		((ud_packet_t){sizeof(x), x})
+	udpc_make_pkt(PKT(dsm), 0, pno++, UDPC_PKT_RPL(UTE_QMETA));
+	udpc_seria_init(ser, UDPC_PAYLOAD(dsm), UDPC_PAYLLEN(sizeof(dsm)));
+
+	udpc_make_pkt(PKT(buf), 0, pno++, UTE_CMD);
+	udpc_set_data_pkt(PKT(buf));
+	udpc_seria_init(ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
+
+	/* get the packet ctor'd */
+	quoq_flush_cb(ctx->qq, (void(*)())flush_cb, ser);
+
+	/* just drain the whole shebang */
+	ud_chan_send_ser_all(ser + 0);
+	ud_chan_send_ser_all(ser + 1);
+	return;
 }
 
 
@@ -397,6 +504,9 @@ chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
 		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
+
+	/* just flush the queue */
+	quoq_flush_maybe(ctx);
 	return;
 }
 
