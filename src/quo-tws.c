@@ -108,10 +108,19 @@ struct ctx_s {
 	quoq_t qq;
 	/* subscription queue */
 	subq_t sq;
+
+	ud_chan_t beef;
 };
 
 
 /* sock helpers, should be somwhere else */
+static void
+setsock_rcvz(int s, int z)
+{
+	setsockopt(s, SOL_SOCKET, SO_RCVBUF, &z, sizeof(z));
+	return;
+}
+
 static int
 tws_sock(const char *host, short unsigned int port)
 {
@@ -176,10 +185,13 @@ udpc_seria_rewind(udpc_seria_t ser)
 	return;
 }
 
-static void
-ud_chan_send_ser_all(udpc_seria_t UNUSED(ser))
+static inline void
+ud_chan_send_ser_all(ctx_t ctx, udpc_seria_t ser)
 {
-	QUO_DEBUG("CHAN\n");
+	if (LIKELY(ctx->beef != NULL)) {
+		QUO_DEBUG("CHAN\n");
+		ud_chan_send_ser(ctx->beef, ser);
+	}
 	return;
 }
 
@@ -202,48 +214,50 @@ udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
 	return;
 }
 
+struct flush_clo_s {
+	ctx_t ctx;
+	struct udpc_seria_s ser[2];
+};
+
 static void
-flush_cb(const_sl1t_t l1t, struct udpc_seria_s ser[static 2])
+flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
 {
-	if (UNLIKELY(!udpc_seria_fits_sl1t_p(ser + 1, l1t))) {
-		ud_chan_send_ser_all(ser + 0);
-		ud_chan_send_ser_all(ser + 1);
-		udpc_seria_rewind(ser + 0);
-		udpc_seria_rewind(ser + 1);
+	if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
+		ud_chan_send_ser_all(clo->ctx, clo->ser + 0);
+		ud_chan_send_ser_all(clo->ctx, clo->ser + 1);
+		udpc_seria_rewind(clo->ser + 0);
+		udpc_seria_rewind(clo->ser + 1);
 	}
 
-	udpc_seria_add_sl1t(ser + 1, l1t);
-#if 0
-	/* i think it's worth checking when we last disseminated this */
-	if (now->tv_sec - subs.last_dsm[tblidx - 1] >= BRAG_INTV) {
-		brag(ser, tblidx);
-		subs.last_dsm[tblidx - 1] = now->tv_sec;
-	}
-#endif
+	udpc_seria_add_sl1t(clo->ser + 1, l1t);
 	return;
 }
 
 static void
 quoq_flush_maybe(ctx_t ctx)
 {
-	struct udpc_seria_s ser[2];
-	char buf[UDPC_PKTLEN];
-	char dsm[UDPC_PKTLEN];
+	static char buf[UDPC_PKTLEN];
+	static char dsm[UDPC_PKTLEN];
+	struct flush_clo_s clo = {
+		.ctx = ctx,
+	};
 
 #define PKT(x)		((ud_packet_t){sizeof(x), x})
 	udpc_make_pkt(PKT(dsm), 0, pno++, UDPC_PKT_RPL(UTE_QMETA));
-	udpc_seria_init(ser, UDPC_PAYLOAD(dsm), UDPC_PAYLLEN(sizeof(dsm)));
+	udpc_seria_init(
+		clo.ser + 0, UDPC_PAYLOAD(dsm), UDPC_PAYLLEN(sizeof(dsm)));
 
 	udpc_make_pkt(PKT(buf), 0, pno++, UTE_CMD);
 	udpc_set_data_pkt(PKT(buf));
-	udpc_seria_init(ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
+	udpc_seria_init(
+		clo.ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
 
 	/* get the packet ctor'd */
-	quoq_flush_cb(ctx->qq, (void(*)())flush_cb, ser);
+	quoq_flush_cb(ctx->qq, (void(*)())flush_cb, &clo);
 
 	/* just drain the whole shebang */
-	ud_chan_send_ser_all(ser + 0);
-	ud_chan_send_ser_all(ser + 1);
+	ud_chan_send_ser_all(ctx, clo.ser + 0);
+	ud_chan_send_ser_all(ctx, clo.ser + 1);
 	return;
 }
 
@@ -511,6 +525,17 @@ chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
 }
 
 static void
+beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
+{
+/* should not be called at all */
+	static char junk[1];
+
+	(void)recv(w->fd, junk, sizeof(junk), MSG_TRUNC);
+	QUO_DEBUG("JUNK\n");
+	return;
+}
+
+static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -550,6 +575,7 @@ main(int argc, char *argv[])
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
 	ev_check chck[1];
+	ev_io ctrl[1];
 	/* final result */
 	int res = 0;
 
@@ -604,6 +630,28 @@ main(int argc, char *argv[])
 	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
 
+	/* attach a multicast listener
+	 * we add this quite late so that it's unlikely that a plethora of
+	 * events has already been injected into our precious queue
+	 * causing the libev main loop to crash. */
+	union __chan_u {
+		ud_chan_t c;
+		void *p;
+	};
+	{
+		union __chan_u x = {ud_chan_init(UD_NETWORK_SERVICE)};
+		int s = ud_chan_init_mcast(x.c);
+
+		setsock_rcvz(s, 0);
+		ctrl->data = x.p;
+		ev_io_init(ctrl, beef_cb, s, EV_READ);
+		ev_io_start(EV_A_ ctrl);
+	}
+	/* go through all beef channels */
+	if (argi->beef_given) {
+		ctx->beef = ud_chan_init(argi->beef_arg);
+	}
+
 	/* get ourselves a quote and sub queue */
 	ctx->qq = make_quoq();
 	ctx->sq = make_subq();
@@ -636,6 +684,17 @@ main(int argc, char *argv[])
 	free_quoq(ctx->qq);
 	/* and the sub queue */
 	free_subq(ctx->sq);
+
+	/* detaching beef and ctrl channels */
+	if (ctx->beef) {
+		ud_chan_fini(ctx->beef);
+	}
+	{
+		ud_chan_t c = ctrl->data;
+
+		ev_io_stop(EV_A_ ctrl);
+		ud_chan_fini(c);
+	}
 
 	/* destroy the default evloop */
 	ev_default_destroy();
