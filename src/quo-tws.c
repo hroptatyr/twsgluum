@@ -586,6 +586,13 @@ main(int argc, char *argv[])
 	ctx->nsubf = argi->inputs_num;
 	ctx->subf = argi->inputs;
 
+	/* and just before we're entering that REPL check for daemonisation */
+	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
+		perror("daemonisation failed");
+		res = 1;
+		goto out;
+	}
+
 	/* initialise the main loop */
 	loop = ev_default_loop(EVFLAG_AUTO);
 
@@ -596,13 +603,6 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sigterm_watcher);
 	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
-
-	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
-		perror("daemonisation failed");
-		res = 1;
-		goto out;
-	}
 
 	/* get ourselves a quote and sub queue */
 	ctx->qq = make_quoq();
