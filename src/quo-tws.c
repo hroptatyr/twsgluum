@@ -61,6 +61,7 @@
 /* the tws api */
 #include "quo-tws.h"
 #include "quo.h"
+#include "sub.h"
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
@@ -96,6 +97,8 @@ struct ctx_s {
 
 	/* quote queue */
 	quoq_t qq;
+	/* subscription queue */
+	subq_t sq;
 };
 
 
@@ -202,7 +205,11 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	case TWS_CB_PRE_CONT_DTL:
 		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
-			tws_sub_quo(tws, clo.data);
+			struct sub_s s;
+
+			s.idx = tws_sub_quo(tws, clo.data);
+			s.sdef = clo.data;
+			subq_add(((ctx_t)tws)->sq, s);
 		}
 		break;
 	case TWS_CB_PRE_CONT_DTL_END:
@@ -487,8 +494,9 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* get ourselves a quote queue */
+	/* get ourselves a quote and sub queue */
 	ctx->qq = make_quoq();
+	ctx->sq = make_subq();
 
 	/* prepare the context and the tws */
 	ctx->tws->pre_cb = pre_cb;
@@ -516,6 +524,8 @@ main(int argc, char *argv[])
 
 	/* finalise quote queue */
 	free_quoq(ctx->qq);
+	/* and the sub queue */
+	free_subq(ctx->sq);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
