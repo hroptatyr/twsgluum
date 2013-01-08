@@ -60,7 +60,7 @@
 
 /* the tws api */
 #include "quo-tws.h"
-#include "quo-tws-private.h"
+#include "quo.h"
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
@@ -132,13 +132,6 @@ tws_sock(const char *host, short unsigned int port)
 out:
 	freeaddrinfo(aires);
 	return s;
-}
-
-
-static void
-fix_quot(quo_qq_t UNUSED(qq_unused), struct quo_s UNUSED(q))
-{
-	return;
 }
 
 
@@ -216,7 +209,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			tws_sub_quo(tws, clo.data);
 		}
 	case TWS_CB_PRE_CONT_DTL_END:
-		break;
+		return;
 
 	default:
 	fucked:
@@ -224,6 +217,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			tws, what, clo.oid, clo.tt, clo.data);
 		return;
 	}
+
+	/* must only be reached for actual ticks */
 	fix_quot(NULL, q);
 	return;
 }

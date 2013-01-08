@@ -1,10 +1,10 @@
-/*** quo-tws-private.h -- private data flow guts
+/*** quo.h -- quotes and queues of quotes
  *
- * Copyright (C) 2012 Sebastian Freundt
+ * Copyright (C) 2012-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of unsermarkt.
+ * This file is part of twsgluum.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,15 +34,19 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_quo_tws_private_h_
-#define INCLUDED_quo_tws_private_h_
+#if !defined INCLUDED_quo_h_
+#define INCLUDED_quo_h_
+
+#include <stdint.h>
 
 #if defined __cplusplus
 extern "C" {
 #endif	/* __cplusplus */
 
-typedef void *quo_qq_t;
+/** a single quote object for internal passing around */
 typedef struct quo_s *quo_t;
+/** a queue of quote objects */
+typedef struct quoq_s *quoq_t;
 
 typedef enum {
 	QUO_TYP_UNK,
@@ -64,8 +68,16 @@ struct quo_s {
 	double val;
 };
 
+/* ctors/dtors */
+extern quoq_t make_quoq(void);
+extern void free_quoq(quoq_t q);
+
+/**
+ * Add Q to the quote queue QQ. */
+extern void quoq_add(quoq_t qq, struct quo_s q);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_quo_tws_private_h_ */
+#endif	/* INCLUDED_quo_h_ */
