@@ -77,7 +77,7 @@ struct q30_s {
 		};
 		size_t typ:2;
 	};
-	size_t idx:16;
+	uint32_t idx;
 };
 
 /* the quote-queue quote, i.e. an item of the quote queue */

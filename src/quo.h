@@ -63,7 +63,7 @@ typedef enum {
 } quo_typ_t;
 
 struct quo_s {
-	uint16_t idx;
+	uint32_t idx;
 	quo_typ_t typ;
 	double val;
 };
