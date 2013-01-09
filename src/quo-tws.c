@@ -206,6 +206,12 @@ udpc_seria_fits_sl1t_p(udpc_seria_t ser, const_sl1t_t UNUSED(q))
 	return true;
 }
 
+static bool
+udpc_seria_fits_dsm_p(udpc_seria_t ser, const char *UNUSED(sym), size_t len)
+{
+	return udpc_seria_msglen(ser) + len + 2 + 4 <= UDPC_PLLEN;
+}
+
 static inline void
 udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
 {
@@ -219,6 +225,41 @@ struct flush_clo_s {
 	struct udpc_seria_s ser[2];
 };
 
+/* looks like dccp://host:port/secdef?idx=00000 */
+static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
+/* offset into brag_uris idx= field */
+static size_t brag_uri_offset = 0;
+
+static int
+brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
+{
+	const char *sym = "gen-nick";
+	size_t len, tot;
+
+	tot = (len = strlen(sym)) + brag_uri_offset + 5;
+
+	if (UNLIKELY(!udpc_seria_fits_dsm_p(ser, sym, tot))) {
+		ud_packet_t pkt = {UDPC_PKTLEN, /*hack*/ser->msg - UDPC_HDRLEN};
+		ud_pkt_no_t pno = udpc_pkt_pno(pkt);
+
+		ud_chan_send_ser_all(ctx, ser);
+
+		/* hack hack hack
+		 * reset the packet */
+		udpc_make_pkt(pkt, 0, pno + 2, UDPC_PKT_RPL(UTE_QMETA));
+		ser->msgoff = 0;
+	}
+	/* add this guy */
+	udpc_seria_add_ui16(ser, idx);
+	udpc_seria_add_str(ser, sym, len);
+	/* put stuff in our uri */
+	len = snprintf(
+		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
+		"%hu", idx);
+	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
+	return 0;
+}
+
 static void
 flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
 {
@@ -230,6 +271,19 @@ flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
 	}
 
 	udpc_seria_add_sl1t(clo->ser + 1, l1t);
+
+	/* try and find the sdef for this quote */
+	{
+		uint16_t idx = sl1t_tblidx(l1t);
+		uint32_t now = sl1t_stmp_sec(l1t);
+		sub_t sub = subq_find_by_idx(clo->ctx->sq, idx);
+
+		if (LIKELY(sub != NULL && now - sub->last_dsm >= BRAG_INTV)) {
+			brag(clo->ctx, clo->ser + 0, idx);
+			/* update sub */
+			sub->last_dsm = now;
+		}
+	}
 	return;
 }
 
