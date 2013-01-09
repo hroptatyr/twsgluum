@@ -1,10 +1,10 @@
-/*** quo-tws-private.h -- private data flow guts
+/*** quo.h -- quotes and queues of quotes
  *
- * Copyright (C) 2012 Sebastian Freundt
+ * Copyright (C) 2012-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of unsermarkt.
+ * This file is part of twsgluum.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,15 +34,24 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_quo_tws_private_h_
-#define INCLUDED_quo_tws_private_h_
+#if !defined INCLUDED_quo_h_
+#define INCLUDED_quo_h_
+
+#include <stdint.h>
 
 #if defined __cplusplus
 extern "C" {
 #endif	/* __cplusplus */
 
-typedef void *quo_qq_t;
+/** a single quote object for internal passing around */
 typedef struct quo_s *quo_t;
+/** a queue of quote objects */
+typedef struct quoq_s *quoq_t;
+
+#if !defined INCLUDED_sl1t_h_
+/* just to declare the flush_cb routine below */
+typedef const struct sl1t_s *const_sl1t_t;
+#endif	/* INCLUDED_sl1t_h_ */
 
 typedef enum {
 	QUO_TYP_UNK,
@@ -59,13 +68,44 @@ typedef enum {
 } quo_typ_t;
 
 struct quo_s {
-	uint16_t idx;
+	uint32_t idx;
 	quo_typ_t typ;
 	double val;
 };
+
+/* quoq callback aspects */
+struct quoq_cb_asp_s {
+	enum {
+		QUOQ_CB_UNK,
+		QUOQ_CB_FLUSH,
+	} type;
+#if defined ASPECT_QUO_AGE
+	int age;
+#endif	/* ASPECT_QUO_AGE */
+};
+
+typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, const_sl1t_t, void*);
+
+
+/* ctors/dtors */
+extern quoq_t make_quoq(void);
+extern void free_quoq(quoq_t q);
+
+/**
+ * Add Q to the quote queue QQ. */
+extern void quoq_add(quoq_t qq, struct quo_s q);
+
+/**
+ * Flush ticks on the queue QQ. */
+extern void quoq_flush(quoq_t qq);
+
+/**
+ * Convert ticks on the queue QQ to uterus sl1t. */
+extern void
+quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo);
 
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_quo_tws_private_h_ */
+#endif	/* INCLUDED_quo_h_ */

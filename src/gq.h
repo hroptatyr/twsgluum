@@ -1,10 +1,10 @@
-/*** sdef.h -- security definitions
+/*** gq.h -- generic queues, or pools of data elements
  *
- * Copyright (C) 2012-2013 Sebastian Freundt
+ * Copyright (C) 2012 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of twsgluum.
+ * This file is part of unsermarkt.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,63 +34,61 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_sdef_h_
-#define INCLUDED_sdef_h_
+#if !defined INCLUDED_gq_h_
+#define INCLUDED_gq_h_
+
+#include <stdint.h>
+#include <stddef.h>
 
 #if defined __cplusplus
 extern "C" {
-# if defined __GNUC__
-#  define restrict	__restrict__
-# else
-#  define restrict
-# endif
 #endif	/* __cplusplus */
 
-typedef void *tws_cont_t;
-typedef const void *tws_const_cont_t;
+#if defined STATIC_GQ_GUTS
+# undef DECLF
+# undef DEFUN
+# define DECLF		static
+# define DEFUN		static __attribute__((unused))
+#elif !defined DECLF
+# define DECLF		extern
+# define DEFUN
+#endif	/* DECLF */
 
-typedef void *tws_sdef_t;
-typedef const void *tws_const_sdef_t;
+/* generic queues */
+typedef struct gq_s *gq_t;
+typedef struct gq_ll_s *gq_ll_t;
+typedef struct gq_item_s *gq_item_t;
 
-/**
- * Serialise SDEF into BUF of size BSZ, return the number of bytes written. */
-extern ssize_t tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t);
+struct gq_item_s {
+	gq_item_t next;
+	gq_item_t prev;
 
-extern int
-tws_deser_cont(
-	const char *xml, size_t len,
-	int(*cb)(tws_cont_t, void *clo), void *clo);
+	char data[];
+};
 
-/**
- * Return a copy of CONT. */
-extern tws_cont_t tws_dup_cont(tws_const_cont_t);
+struct gq_ll_s {
+	gq_item_t i1st;
+	gq_item_t ilst;
+};
 
-/**
- * Free resources associated with CONT. */
-extern void tws_free_cont(tws_cont_t);
+struct gq_s {
+	gq_item_t items;
+	size_t nitems;
 
-/**
- * Return a copy of SDEF. */
-extern tws_sdef_t tws_dup_sdef(tws_const_sdef_t);
+	struct gq_ll_s free[1];
+};
 
-/**
- * Free resources associated with SDEF. */
-extern void tws_free_sdef(tws_sdef_t);
 
-/**
- * Return a contract object that matches the security definition SDEF. */
-extern tws_cont_t tws_sdef_make_cont(tws_const_sdef_t);
+DECLF ptrdiff_t init_gq(gq_t, size_t mbsz, size_t at_least);
+DECLF void fini_gq(gq_t);
+DECLF void gq_rbld_ll(gq_ll_t dll, ptrdiff_t);
 
-/**
- * Return a nick name for given contract. */
-extern const char *tws_cont_nick(tws_const_cont_t);
-
-/**
- * Return a nick name for given secdef. */
-extern const char *tws_sdef_nick(tws_const_sdef_t);
+DECLF gq_item_t gq_pop_head(gq_ll_t);
+DECLF void gq_push_tail(gq_ll_t, gq_item_t);
+DECLF void gq_pop_item(gq_ll_t dll, gq_item_t i);
 
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_sdef_h_ */
+#endif	/* INCLUDED_gq_h_ */

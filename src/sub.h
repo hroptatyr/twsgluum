@@ -1,4 +1,4 @@
-/*** sdef.h -- security definitions
+/*** sub.h -- subscriptions
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,63 +34,39 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_sdef_h_
-#define INCLUDED_sdef_h_
+#if !defined INCLUDED_sub_h_
+#define INCLUDED_sub_h_
+
+#include <stdint.h>
+#include "sdef.h"
 
 #if defined __cplusplus
 extern "C" {
-# if defined __GNUC__
-#  define restrict	__restrict__
-# else
-#  define restrict
-# endif
 #endif	/* __cplusplus */
 
-typedef void *tws_cont_t;
-typedef const void *tws_const_cont_t;
+/** a simple subscription object */
+typedef struct sub_s *sub_t;
+/** a queue of subscription objects */
+typedef struct subq_s *subq_t;
 
-typedef void *tws_sdef_t;
-typedef const void *tws_const_sdef_t;
+struct sub_s {
+	uint32_t idx;
+	uint32_t last_dsm;
+	tws_sdef_t sdef;
+};
 
-/**
- * Serialise SDEF into BUF of size BSZ, return the number of bytes written. */
-extern ssize_t tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t);
+
+/* ctors dtors */
+extern subq_t make_subq(void);
+extern void free_subq(subq_t);
 
-extern int
-tws_deser_cont(
-	const char *xml, size_t len,
-	int(*cb)(tws_cont_t, void *clo), void *clo);
+/* and accessors */
+extern void subq_add(subq_t sq, struct sub_s s);
 
-/**
- * Return a copy of CONT. */
-extern tws_cont_t tws_dup_cont(tws_const_cont_t);
-
-/**
- * Free resources associated with CONT. */
-extern void tws_free_cont(tws_cont_t);
-
-/**
- * Return a copy of SDEF. */
-extern tws_sdef_t tws_dup_sdef(tws_const_sdef_t);
-
-/**
- * Free resources associated with SDEF. */
-extern void tws_free_sdef(tws_sdef_t);
-
-/**
- * Return a contract object that matches the security definition SDEF. */
-extern tws_cont_t tws_sdef_make_cont(tws_const_sdef_t);
-
-/**
- * Return a nick name for given contract. */
-extern const char *tws_cont_nick(tws_const_cont_t);
-
-/**
- * Return a nick name for given secdef. */
-extern const char *tws_sdef_nick(tws_const_sdef_t);
+extern sub_t subq_find_by_idx(subq_t sq, uint32_t idx);
 
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
 
-#endif	/* INCLUDED_sdef_h_ */
+#endif	/* INCLUDED_sub_h_ */

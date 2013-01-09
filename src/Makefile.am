@@ -24,14 +24,19 @@ BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
 quo_tws_SOURCES += tws.cpp tws.h
 quo_tws_SOURCES += logger.c logger.h
 quo_tws_SOURCES += daemonise.c daemonise.h
-quo_tws_SOURCES += sdef.c sdef.h
+quo_tws_SOURCES += sdef.c sdef.h sdef-private.h
+quo_tws_SOURCES += quo.c quo.h
+quo_tws_SOURCES += sub.c sub.h
+quo_tws_SOURCES += websvc.c websvc.h
+quo_tws_SOURCES += ud-sock.h
 EXTRA_quo_tws_SOURCES += proto-tx-ns.gperf proto-tx-ns.h
 EXTRA_quo_tws_SOURCES += proto-tx-attr.gperf proto-tx-attr.h
-EXTRA_quo_tws_SOURCES += proto-twsxml-tag.gperf
+EXTRA_quo_tws_SOURCES += proto-twsxml-tag.gperf proto-twsxml-tag.h
 EXTRA_quo_tws_SOURCES += proto-twsxml-attr.gperf proto-twsxml-attr.h
 EXTRA_quo_tws_SOURCES += proto-twsxml-reqtyp.gperf proto-twsxml-reqtyp.h
 EXTRA_quo_tws_SOURCES += proto-fixml-tag.gperf proto-fixml-tag.h
 EXTRA_quo_tws_SOURCES += proto-fixml-attr.gperf proto-fixml-attr.h
+EXTRA_quo_tws_SOURCES += gq.c gq.h
 BUILT_SOURCES += proto-tx-attr.c
 BUILT_SOURCES += proto-tx-ns.c
 BUILT_SOURCES += proto-twsxml-tag.c
@@ -45,13 +50,14 @@ quo_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_QUO
 quo_tws_CPPFLAGS += $(twsapi_CFLAGS)
 quo_tws_CPPFLAGS += $(libev_CFLAGS)
 quo_tws_CPPFLAGS += $(expat_CFLAGS)
+quo_tws_CPPFLAGS += $(unserding_CFLAGS)
 quo_tws_LDFLAGS = $(AM_LDFLAGS)
 quo_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 quo_tws_LDFLAGS += $(libev_LIBS)
 quo_tws_LDFLAGS += $(expat_LIBS)
+quo_tws_LDFLAGS += $(unserding_LIBS)
 quo_tws_LDADD =
 quo_tws_LDADD += $(twsapi_LIBS)
-EXTRA_quo_tws_SOURCES += quo-wrapper.cpp
 
 bin_PROGRAMS += pf-tws
 pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
@@ -83,7 +89,6 @@ ox_tws_LDFLAGS += $(libev_LIBS)
 ox_tws_LDADD =
 ox_tws_LDADD += $(twsapi_LIBS)
 
-EXTRA_DIST += empty-wrapper.cpp
 
 ## our rule for gengetopt
 %.c %.h: %.ggo

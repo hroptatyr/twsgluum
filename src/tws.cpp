@@ -716,14 +716,14 @@ fini_tws(tws_t tws)
 		/* already finished */
 		return 0;
 	}
-	if (TWS_PRIV_CLI(tws)) {
-		/* perform API internal stopping routine */
-		tws_stop(tws);
-
-		delete TWS_PRIV_CLI(tws);
-		TWS_PRIV_WRP(tws)->cli = NULL;
-	}
 	if (TWS_PRIV_WRP(tws)) {
+		if (TWS_PRIV_CLI(tws)) {
+			/* perform API internal stopping routine */
+			tws_stop(tws);
+
+			delete TWS_PRIV_CLI(tws);
+			TWS_PRIV_WRP(tws)->cli = NULL;
+		}
 		delete TWS_PRIV_WRP(tws);
 		tws->priv = NULL;
 	}
