@@ -156,15 +156,15 @@ subq_add(subq_t sq, struct sub_s s)
 	return;
 }
 
-struct sub_s
+sub_t
 subq_find_by_idx(subq_t sq, uint32_t idx)
 {
 	sub_qqq_t sp;
 
 	if (LIKELY((sp = find_cell(sq->sbuf, idx)) != NULL)) {
-		return sp->s;
+		return &sp->s;
 	}
-	return (struct sub_s){0};
+	return NULL;
 }
 
 /* sub.c ends here */

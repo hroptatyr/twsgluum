@@ -62,7 +62,7 @@ extern void free_subq(subq_t);
 /* and accessors */
 extern void subq_add(subq_t sq, struct sub_s s);
 
-extern struct sub_s subq_find_by_idx(subq_t sq, uint32_t idx);
+extern sub_t subq_find_by_idx(subq_t sq, uint32_t idx);
 
 #if defined __cplusplus
 }
