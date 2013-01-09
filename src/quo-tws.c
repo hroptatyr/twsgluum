@@ -487,40 +487,17 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 			}
 		}
 	case TWS_ST_SUP:
-		break;
-	default:
-		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
-		abort();
-	}
-	old_st = st;
-	return;
-}
-
-static void
-chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
-{
-	ctx_t ctx = w->data;
-	tws_st_t st;
-
-	QUO_DEBUG("CHCK\n");
-
-	st = tws_state(ctx->tws);
-	QUO_DEBUG("STAT  %u\n", st);
-	switch (st) {
-	case TWS_ST_SUP:
-	case TWS_ST_RDY:
+		/* former ST_RDY/ST_SUP case pair in chck_cb() */
 		tws_send(ctx->tws);
-		break;
-	case TWS_ST_UNK:
-	case TWS_ST_DWN:
+		/* and flush the queue */
+		quoq_flush_maybe(ctx);
 		break;
 	default:
 		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
 
-	/* just flush the queue */
-	quoq_flush_maybe(ctx);
+	old_st = st;
 	return;
 }
 
@@ -574,7 +551,6 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
-	ev_check chck[1];
 	ev_io ctrl[1];
 	/* final result */
 	int res = 0;
@@ -664,16 +640,11 @@ main(int argc, char *argv[])
 	ev_prepare_init(prep, prep_cb);
 	ev_prepare_start(EV_A_ prep);
 
-	chck->data = ctx;
-	ev_check_init(chck, chck_cb);
-	ev_check_start(EV_A_ chck);
-
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
 	ev_prepare_stop(EV_A_ prep);
-	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
 	QUO_DEBUG("FINI\n");
