@@ -114,6 +114,19 @@ pop_q(subq_t sq)
 	return res;
 }
 
+static sub_qqq_t
+find_cell(gq_ll_t lst, uint32_t idx)
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (sp->s.idx == idx) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
 
 /* public funs */
 subq_t
@@ -140,6 +153,17 @@ subq_add(subq_t sq, struct sub_s s)
 	gq_push_tail(sq->sbuf, (gq_item_t)si);
 	SUB_DEBUG("PUSH SQ %p\n", si);
 	return;
+}
+
+struct sub_s
+subq_find_by_idx(subq_t sq, uint32_t idx)
+{
+	sub_qqq_t sp;
+
+	if (LIKELY((sp = find_cell(sq->sbuf, idx)) != NULL)) {
+		return sp->s;
+	}
+	return (struct sub_s){0};
 }
 
 /* sub.c ends here */
