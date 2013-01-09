@@ -79,6 +79,9 @@ struct quoq_cb_asp_s {
 		QUOQ_CB_UNK,
 		QUOQ_CB_FLUSH,
 	} type;
+#if defined ASPECT_QUO_AGE
+	int age;
+#endif	/* ASPECT_QUO_AGE */
 };
 
 typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, const_sl1t_t, void*);

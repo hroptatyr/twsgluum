@@ -88,6 +88,7 @@ struct quo_qqq_s {
 	q30_t t;
 	m30_t p;
 	m30_t q;
+	uint32_t last_dsm;
 };
 
 struct quoq_s {
@@ -367,12 +368,26 @@ quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 			goto free;
 		}
 
+		/* keep a note about dissemination */
+		qi->last_dsm = now->tv_sec;
+
+		/* find the cell in the pbuf */
+		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
+#if defined ASPECT_QUO_AGE
+			asp.age = qi->last_dsm - qp->last_dsm;
+		} else {
+			asp.age = -1;
+#endif	/* ASPECT_QUO_AGE */
+		}
+
 		/* call the callback */
 		cb(asp, l1t, clo);
 
-		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
+		/* finalise the cells */
+		if (qp != NULL) {
 			qp->p = qi->p;
 			qp->q = qi->q;
+			qp->last_dsm = qi->last_dsm;
 		free:
 			free_qqq(qq, qi);
 		} else {
