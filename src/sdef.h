@@ -61,6 +61,34 @@ tws_deser_cont(
 	const char *xml, size_t len,
 	int(*cb)(tws_cont_t, void *clo), void *clo);
 
+/**
+ * Return a copy of CONT. */
+extern tws_cont_t tws_dup_cont(tws_const_cont_t);
+
+/**
+ * Free resources associated with CONT. */
+extern void tws_free_cont(tws_cont_t);
+
+/**
+ * Return a copy of SDEF. */
+extern tws_sdef_t tws_dup_sdef(tws_const_sdef_t);
+
+/**
+ * Free resources associated with SDEF. */
+extern void tws_free_sdef(tws_sdef_t);
+
+/**
+ * Return a contract object that matches the security definition SDEF. */
+extern tws_cont_t tws_sdef_make_cont(tws_const_sdef_t);
+
+/**
+ * Return a nick name for given contract. */
+extern const char *tws_cont_nick(tws_const_cont_t);
+
+/**
+ * Return a nick name for given secdef. */
+extern const char *tws_sdef_nick(tws_const_sdef_t);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */

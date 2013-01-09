@@ -38,6 +38,7 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 #include <unistd.h>
+#include <stdio.h>
 #include "logger.h"
 #include <twsapi/Contract.h>
 
@@ -345,6 +346,74 @@ parse_req_typ(const char *typ)
 	const struct tws_xml_rtcell_s *rtc = __rtiddify(typ, strlen(typ));
 
 	return rtc->rtid;
+}
+
+
+/* other stuff that has no better place */
+tws_cont_t
+tws_dup_cont(tws_const_cont_t c)
+{
+	const IB::Contract *ibc = (const IB::Contract*)c;
+	IB::Contract *res = new IB::Contract;
+
+	*res = *ibc;
+	return (tws_cont_t)res;
+}
+
+void
+tws_free_cont(tws_cont_t c)
+{
+	delete (IB::Contract*)c;
+	return;
+}
+
+tws_sdef_t
+tws_dup_sdef(tws_const_sdef_t s)
+{
+	const IB::ContractDetails *ibs = (const IB::ContractDetails*)s;
+	IB::ContractDetails *res = new IB::ContractDetails;
+
+	*res = *ibs;
+	return (tws_sdef_t)res;
+}
+
+void
+tws_free_sdef(tws_sdef_t s)
+{
+	delete (IB::ContractDetails*)s;
+	return;
+}
+
+tws_cont_t
+tws_sdef_make_cont(tws_const_sdef_t x)
+{
+	const IB::ContractDetails *ibcd = (const IB::ContractDetails*)x;
+	IB::Contract *res = new IB::Contract;
+
+	*res = ibcd->summary;
+	return (tws_cont_t)res;
+}
+
+const char*
+tws_cont_nick(tws_const_cont_t cont)
+{
+/* our nick names look like CONID_SECTYP_EXCH */
+	static char nick[64];
+	const IB::Contract *c = (const IB::Contract*)cont;
+	long int cid = c->conId;
+	const char *sty = c->secType.c_str();
+	const char *xch = c->exchange.c_str();
+
+	snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
+	return nick;
+}
+
+const char*
+tws_sdef_nick(tws_const_sdef_t sdef)
+{
+/* like tws_cont_nick() but for the contract matching sdef */
+	const IB::ContractDetails *sd = (const IB::ContractDetails*)sdef;
+	return tws_cont_nick((tws_const_cont_t)&sd->summary);
 }
 
 /* sdef-twsxml.cpp ends here */

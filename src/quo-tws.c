@@ -304,9 +304,9 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 }
 
 static int
-brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
+brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
 {
-	const char *sym = "gen-nick";
+	const char *sym = tws_cont_nick(sub->sdef);
 	size_t len, tot;
 
 	tot = (len = strlen(sym)) + brag_uri_offset + 5;
@@ -323,12 +323,12 @@ brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
 		ser->msgoff = 0;
 	}
 	/* add this guy */
-	udpc_seria_add_ui16(ser, idx);
+	udpc_seria_add_ui16(ser, sub->idx);
 	udpc_seria_add_str(ser, sym, len);
 	/* put stuff in our uri */
 	len = snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
-		"%hu", idx);
+		"%u", sub->idx);
 	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
 	return 0;
 }
@@ -354,7 +354,7 @@ flush_cb(struct quoq_cb_asp_s asp, const_sl1t_t l1t, struct flush_clo_s *clo)
 		sub_t sub = subq_find_by_idx(clo->ctx->sq, idx);
 
 		if (LIKELY(sub != NULL && now - sub->last_dsm >= BRAG_INTV)) {
-			brag(clo->ctx, clo->ser + 0, idx);
+			brag(clo->ctx, clo->ser + 0, sub);
 			/* update sub */
 			sub->last_dsm = now;
 		}
@@ -461,7 +461,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			struct sub_s s;
 
 			s.idx = tws_sub_quo(tws, clo.data);
-			s.sdef = clo.data;
+			s.sdef = tws_dup_sdef(clo.data);
 			subq_add(((ctx_t)tws)->sq, s);
 		}
 		break;

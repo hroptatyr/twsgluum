@@ -38,6 +38,7 @@
 #define INCLUDED_sub_h_
 
 #include <stdint.h>
+#include "sdef.h"
 
 #if defined __cplusplus
 extern "C" {
@@ -51,7 +52,7 @@ typedef struct subq_s *subq_t;
 struct sub_s {
 	uint32_t idx;
 	uint32_t last_dsm;
-	const void *sdef;
+	tws_sdef_t sdef;
 };
 
 
