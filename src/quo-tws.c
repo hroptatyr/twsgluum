@@ -116,6 +116,56 @@ struct ctx_s {
 
 /* sock helpers, should be somwhere else */
 static int
+make_dccp(void)
+{
+	int s;
+
+	if ((s = socket(PF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+		return s;
+	}
+	/* mark the address as reusable */
+	setsock_reuseaddr(s);
+	/* impose a sockopt service, we just use 1 for now */
+	set_dccp_service(s, 1);
+	/* make a timeout for the accept call below */
+	setsock_rcvtimeo(s, 1000);
+	/* make socket non blocking */
+	setsock_nonblock(s);
+	/* turn off nagle'ing of data */
+	setsock_nodelay(s);
+	return s;
+}
+
+static int
+make_tcp(void)
+{
+	int s;
+
+	if ((s = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+		return s;
+	}
+	/* reuse addr in case we quickly need to turn the server off and on */
+	setsock_reuseaddr(s);
+	/* turn lingering on */
+	setsock_linger(s, 1);
+	return s;
+}
+
+static int
+sock_listener(int s, ud_sockaddr_t sa)
+{
+	if (s < 0) {
+		return s;
+	}
+
+	if (bind(s, &sa->sa, sizeof(*sa)) < 0) {
+		return -1;
+	}
+
+	return listen(s, MAX_DCCP_CONNECTION_BACK_LOG);
+}
+
+static int
 tws_sock(const char *host, short unsigned int port)
 {
 	static char pstr[32];
@@ -223,6 +273,34 @@ struct flush_clo_s {
 static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
 /* offset into brag_uris idx= field */
 static size_t brag_uri_offset = 0;
+
+static int
+make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
+{
+	struct utsname uts[1];
+	char dnsdom[64];
+	const size_t uri_host_offs = sizeof("dccp://");
+	char *curs = brag_uri + uri_host_offs - 1;
+	size_t rest = sizeof(brag_uri) - uri_host_offs;
+	int len;
+
+	if (uname(uts) < 0) {
+		return -1;
+	} else if (getdomainname(dnsdom, sizeof(dnsdom)) < 0) {
+		return -1;
+	}
+
+	len = snprintf(
+		curs, rest, "%s.%s:%hu/secdef?idx=",
+		uts->nodename, dnsdom, ntohs(sa->sa6.sin6_port));
+
+	if (len > 0) {
+		brag_uri_offset = uri_host_offs + len - 1;
+	}
+
+	QUO_DEBUG("adv_name: %s\n", brag_uri);
+	return 0;
+}
 
 static int
 brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
@@ -552,6 +630,24 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 }
 
 static void
+dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
+{
+	union ud_sockaddr_u sa;
+	socklen_t sasz = sizeof(sa);
+	int s;
+
+	QUO_DEBUG("DCCP %d\n", w->fd);
+
+	if ((s = accept(w->fd, &sa.sa, &sasz)) < 0) {
+		return;
+	}
+
+	/* close it right away, we're not in the mood for this now */
+	close(s);
+	return;
+}
+
+static void
 beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
 {
 /* should not be called at all */
@@ -602,6 +698,7 @@ main(int argc, char *argv[])
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
 	ev_io ctrl[1];
+	ev_io dccp[2];
 	/* final result */
 	int res = 0;
 
@@ -678,6 +775,56 @@ main(int argc, char *argv[])
 		ctx->beef = ud_chan_init(argi->beef_arg);
 	}
 
+	/* make a channel for http/dccp requests */
+	{
+		union ud_sockaddr_u sa = {
+			.sa6 = {
+				.sin6_family = AF_INET6,
+				.sin6_addr = in6addr_any,
+				.sin6_port = 0,
+			},
+		};
+		socklen_t sa_len = sizeof(sa);
+		int s;
+
+		if ((s = make_dccp()) < 0) {
+			/* just to indicate we have no socket */
+			dccp[0].fd = -1;
+		} else if (sock_listener(s, &sa) < 0) {
+			/* grrr, whats wrong now */
+			close(s);
+			dccp[0].fd = -1;
+		} else {
+			/* everything's brilliant */
+			ev_io_init(dccp, dccp_cb, s, EV_READ);
+			ev_io_start(EV_A_ dccp);
+
+			getsockname(s, &sa.sa, &sa_len);
+		}
+
+
+		if (countof(dccp) < 2) {
+			;
+		} else if ((s = make_tcp()) < 0) {
+			/* just to indicate we have no socket */
+			dccp[1].fd = -1;
+		} else if (sock_listener(s, &sa) < 0) {
+			/* bugger */
+			close(s);
+			dccp[1].fd = -1;
+		} else {
+			/* yay */
+			ev_io_init(dccp + 1, dccp_cb, s, EV_READ);
+			ev_io_start(EV_A_ dccp + 1);
+
+			getsockname(s, &sa.sa, &sa_len);
+		}
+
+		if (s >= 0) {
+			make_brag_uri(&sa, sa_len);
+		}
+	}
+
 	/* get ourselves a quote and sub queue */
 	ctx->qq = make_quoq();
 	ctx->sq = make_subq();
@@ -715,6 +862,15 @@ main(int argc, char *argv[])
 
 		ev_io_stop(EV_A_ ctrl);
 		ud_chan_fini(c);
+	}
+
+	/* detach http/dccp */
+	for (size_t i = 0; i < countof(dccp); i++) {
+		int s = dccp[i].fd;
+
+		if (s > 0) {
+			ev_io_shut(EV_A_ dccp + i);
+		}
 	}
 
 	/* destroy the default evloop */
