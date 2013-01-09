@@ -58,7 +58,6 @@ quo_tws_LDFLAGS += $(expat_LIBS)
 quo_tws_LDFLAGS += $(unserding_LIBS)
 quo_tws_LDADD =
 quo_tws_LDADD += $(twsapi_LIBS)
-EXTRA_quo_tws_SOURCES += quo-wrapper.cpp
 
 bin_PROGRAMS += pf-tws
 pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
@@ -90,7 +89,6 @@ ox_tws_LDFLAGS += $(libev_LIBS)
 ox_tws_LDADD =
 ox_tws_LDADD += $(twsapi_LIBS)
 
-EXTRA_DIST += empty-wrapper.cpp
 
 ## our rule for gengetopt
 %.c %.h: %.ggo
