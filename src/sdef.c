@@ -324,11 +324,65 @@ tws_deser_cont(
 }
 #endif	/* HAVE_EXPAT_H */
 
+
 /* serialiser */
 ssize_t
 tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t sd)
 {
-	return -1;
+	static char hdr[] = "\
+<?xml version=\"1.0\"?>\n\
+<FIXML xmlns=\"http://www.fixprotocol.org/FIXML-5-0-SP2\"/>\
+";
+	static char ftr[] = "\
+</FIXML>\n\
+";
+	char *restrict p;
+
+	if (bsz < sizeof(hdr)) {
+		/* completely fucked */
+		return -1;
+	}
+
+	/* always start out with the hdr,
+	 * which for efficiency contains the empty case already */
+	strncpy(p = buf, hdr, bsz);
+
+	if (UNLIKELY(sd == NULL)) {
+		/* this is convenience for lazy definitions in the higher
+		 * level, undocumented though */
+		return sizeof(hdr) - 1;
+	}
+
+	/* modify the contents so far */
+	p[sizeof(hdr) - 3] = '>';
+	p[sizeof(hdr) - 2] = '\n';
+	/* 1 for the / we discarded, one for the \0 */
+	p += sizeof(hdr) - 1 - 1;
+
+	/* it's just one contract, yay
+	 * we quickly give an estimate of the space left
+	 * we used to count in the space we need for the footer,
+	 * but that would give us a headache when we switch to incremental
+	 * string building. */
+	{
+		static ssize_t(*cb)() = tws_ser_sdef_fix;
+		size_t spc_left = bsz - (p - buf);
+		ssize_t tmp;
+
+		if ((tmp = cb(p, spc_left, sd)) < 0) {
+			/* grrrr */
+			return -1;
+		}
+		/* otherwise */
+		p += tmp;
+	}
+
+	/* and the footer now */
+	if (p + sizeof(ftr) < buf + bsz) {
+		memcpy(p, ftr, sizeof(ftr));
+		p += sizeof(ftr) - 1;
+	}
+	return p - buf;
 }
 
 /* sdef.c ends here */

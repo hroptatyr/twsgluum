@@ -121,6 +121,9 @@ extern void sax_eo_FIXML_elt(__ctx_t, const char *elem);
 /* generic */
 extern void ptx_reg_ns(__ctx_t, const char *pref, const char *href);
 
+/* serialiser */
+extern ssize_t tws_ser_sdef_fix(char *restrict, size_t, tws_const_sdef_t);
+
 
 static const char*
 tag_massage(const char *tag)
