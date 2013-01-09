@@ -52,7 +52,7 @@ typedef struct subq_s *subq_t;
 struct sub_s {
 	uint32_t idx;
 	uint32_t last_dsm;
-	tws_const_sdef_t sdef;
+	tws_sdef_t sdef;
 };
 
 

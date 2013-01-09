@@ -457,7 +457,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			struct sub_s s;
 
 			s.idx = tws_sub_quo(tws, clo.data);
-			s.sdef = clo.data;
+			s.sdef = tws_dup_sdef(clo.data);
 			subq_add(((ctx_t)tws)->sq, s);
 		}
 		break;
