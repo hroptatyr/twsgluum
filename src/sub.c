@@ -147,10 +147,19 @@ void
 subq_add(subq_t sq, struct sub_s s)
 {
 	/* get us a free item */
-	sub_qqq_t si = pop_q(sq);
+	sub_qqq_t si;
+	int need_push_p = 0;
 
+	if ((si = find_cell(sq->sbuf, s.idx)) == NULL) {
+		si = pop_q(sq);
+		need_push_p = 1;
+	}
+	/* just copy the whole shebang */
 	si->s = s;
-	gq_push_tail(sq->sbuf, (gq_item_t)si);
+	/* and maybe push it */
+	if (UNLIKELY(need_push_p)) {
+		gq_push_tail(sq->sbuf, (gq_item_t)si);
+	}
 	SUB_DEBUG("PUSH SQ %p\n", si);
 	return;
 }
