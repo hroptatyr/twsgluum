@@ -38,6 +38,7 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 #include <unistd.h>
+#include <stdio.h>
 #include "logger.h"
 #include <twsapi/Contract.h>
 
@@ -391,6 +392,28 @@ tws_sdef_make_cont(tws_const_sdef_t x)
 
 	*res = ibcd->summary;
 	return (tws_cont_t)res;
+}
+
+const char*
+tws_cont_nick(tws_const_cont_t cont)
+{
+/* our nick names look like CONID_SECTYP_EXCH */
+	static char nick[64];
+	const IB::Contract *c = (const IB::Contract*)cont;
+	long int cid = c->conId;
+	const char *sty = c->secType.c_str();
+	const char *xch = c->exchange.c_str();
+
+	snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
+	return nick;
+}
+
+const char*
+tws_sdef_nick(tws_const_sdef_t sdef)
+{
+/* like tws_cont_nick() but for the contract matching sdef */
+	const IB::ContractDetails *sd = (const IB::ContractDetails*)sdef;
+	return tws_cont_nick((tws_const_cont_t)&sd->summary);
 }
 
 /* sdef-twsxml.cpp ends here */

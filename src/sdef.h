@@ -77,6 +77,14 @@ extern void tws_free_sdef(tws_sdef_t);
  * Return a contract object that matches the security definition SDEF. */
 extern tws_cont_t tws_sdef_make_cont(tws_const_sdef_t);
 
+/**
+ * Return a nick name for given contract. */
+extern const char *tws_cont_nick(tws_const_cont_t);
+
+/**
+ * Return a nick name for given secdef. */
+extern const char *tws_sdef_nick(tws_const_sdef_t);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */
