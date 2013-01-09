@@ -341,7 +341,7 @@ quoq_flush(quoq_t qq)
 }
 
 void
-quoq_flush_cb(quoq_t qq, void(*cb)(const void*, void*), void *clo)
+quoq_flush_cb(quoq_t qq, void(*cb)(const_sl1t_t, void*), void *clo)
 {
 	struct timeval now[1];
 	struct sl1t_s l1t[1];

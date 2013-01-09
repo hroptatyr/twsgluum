@@ -48,6 +48,11 @@ typedef struct quo_s *quo_t;
 /** a queue of quote objects */
 typedef struct quoq_s *quoq_t;
 
+#if !defined INCLUDED_sl1t_h_
+/* just to declare the flush_cb routine below */
+typedef const struct sl1t_s *const_sl1t_t;
+#endif	/* INCLUDED_sl1t_h_ */
+
 typedef enum {
 	QUO_TYP_UNK,
 	QUO_TYP_BID,
@@ -83,7 +88,7 @@ extern void quoq_flush(quoq_t qq);
 /**
  * Convert ticks on the queue QQ to uterus sl1t. */
 extern void
-quoq_flush_cb(quoq_t qq, void(*cb)(const void*, void*), void *clo);
+quoq_flush_cb(quoq_t qq, void(*cb)(const_sl1t_t, void*), void *clo);
 
 #if defined __cplusplus
 }
