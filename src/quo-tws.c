@@ -76,6 +76,7 @@
 #include "tws.h"
 #include "sdef.h"
 #include "nifty.h"
+#include "ud-sock.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -114,11 +115,54 @@ struct ctx_s {
 
 
 /* sock helpers, should be somwhere else */
-static void
-setsock_rcvz(int s, int z)
+static int
+make_dccp(void)
 {
-	setsockopt(s, SOL_SOCKET, SO_RCVBUF, &z, sizeof(z));
-	return;
+	int s;
+
+	if ((s = socket(PF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+		return s;
+	}
+	/* mark the address as reusable */
+	setsock_reuseaddr(s);
+	/* impose a sockopt service, we just use 1 for now */
+	set_dccp_service(s, 1);
+	/* make a timeout for the accept call below */
+	setsock_rcvtimeo(s, 1000);
+	/* make socket non blocking */
+	setsock_nonblock(s);
+	/* turn off nagle'ing of data */
+	setsock_nodelay(s);
+	return s;
+}
+
+static int
+make_tcp(void)
+{
+	int s;
+
+	if ((s = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+		return s;
+	}
+	/* reuse addr in case we quickly need to turn the server off and on */
+	setsock_reuseaddr(s);
+	/* turn lingering on */
+	setsock_linger(s, 1);
+	return s;
+}
+
+static int
+sock_listener(int s, ud_sockaddr_t sa)
+{
+	if (s < 0) {
+		return s;
+	}
+
+	if (bind(s, &sa->sa, sizeof(*sa)) < 0) {
+		return -1;
+	}
+
+	return listen(s, MAX_DCCP_CONNECTION_BACK_LOG);
 }
 
 static int
@@ -206,6 +250,12 @@ udpc_seria_fits_sl1t_p(udpc_seria_t ser, const_sl1t_t UNUSED(q))
 	return true;
 }
 
+static bool
+udpc_seria_fits_dsm_p(udpc_seria_t ser, const char *UNUSED(sym), size_t len)
+{
+	return udpc_seria_msglen(ser) + len + 2 + 4 <= UDPC_PLLEN;
+}
+
 static inline void
 udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
 {
@@ -219,9 +269,74 @@ struct flush_clo_s {
 	struct udpc_seria_s ser[2];
 };
 
-static void
-flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
+/* looks like dccp://host:port/secdef?idx=00000 */
+static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
+/* offset into brag_uris idx= field */
+static size_t brag_uri_offset = 0;
+
+static int
+make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 {
+	struct utsname uts[1];
+	char dnsdom[64];
+	const size_t uri_host_offs = sizeof("dccp://");
+	char *curs = brag_uri + uri_host_offs - 1;
+	size_t rest = sizeof(brag_uri) - uri_host_offs;
+	int len;
+
+	if (uname(uts) < 0) {
+		return -1;
+	} else if (getdomainname(dnsdom, sizeof(dnsdom)) < 0) {
+		return -1;
+	}
+
+	len = snprintf(
+		curs, rest, "%s.%s:%hu/secdef?idx=",
+		uts->nodename, dnsdom, ntohs(sa->sa6.sin6_port));
+
+	if (len > 0) {
+		brag_uri_offset = uri_host_offs + len - 1;
+	}
+
+	QUO_DEBUG("adv_name: %s\n", brag_uri);
+	return 0;
+}
+
+static int
+brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
+{
+	const char *sym = "gen-nick";
+	size_t len, tot;
+
+	tot = (len = strlen(sym)) + brag_uri_offset + 5;
+
+	if (UNLIKELY(!udpc_seria_fits_dsm_p(ser, sym, tot))) {
+		ud_packet_t pkt = {UDPC_PKTLEN, /*hack*/ser->msg - UDPC_HDRLEN};
+		ud_pkt_no_t pno = udpc_pkt_pno(pkt);
+
+		ud_chan_send_ser_all(ctx, ser);
+
+		/* hack hack hack
+		 * reset the packet */
+		udpc_make_pkt(pkt, 0, pno + 2, UDPC_PKT_RPL(UTE_QMETA));
+		ser->msgoff = 0;
+	}
+	/* add this guy */
+	udpc_seria_add_ui16(ser, idx);
+	udpc_seria_add_str(ser, sym, len);
+	/* put stuff in our uri */
+	len = snprintf(
+		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
+		"%hu", idx);
+	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
+	return 0;
+}
+
+static void
+flush_cb(struct quoq_cb_asp_s asp, const_sl1t_t l1t, struct flush_clo_s *clo)
+{
+	assert(asp.type == QUOQ_CB_FLUSH);
+
 	if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 0);
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 1);
@@ -230,6 +345,19 @@ flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
 	}
 
 	udpc_seria_add_sl1t(clo->ser + 1, l1t);
+
+	/* try and find the sdef for this quote */
+	{
+		uint16_t idx = sl1t_tblidx(l1t);
+		uint32_t now = sl1t_stmp_sec(l1t);
+		sub_t sub = subq_find_by_idx(clo->ctx->sq, idx);
+
+		if (LIKELY(sub != NULL && now - sub->last_dsm >= BRAG_INTV)) {
+			brag(clo->ctx, clo->ser + 0, idx);
+			/* update sub */
+			sub->last_dsm = now;
+		}
+	}
 	return;
 }
 
@@ -385,6 +513,12 @@ init_subs(tws_t tws, const char *file)
 }
 
 
+struct dccp_conn_s {
+	ev_io io[1];
+	union ud_sockaddr_u sa[1];
+	socklen_t sasz;
+};
+
 static void
 ev_io_shut(EV_P_ ev_io *w)
 {
@@ -394,6 +528,30 @@ ev_io_shut(EV_P_ ev_io *w)
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
 	w->fd = -1;
+	return;
+}
+
+static void
+dccp_data_cb(EV_P_ ev_io *w, int UNUSED(re))
+{
+        static char buf[INET6_ADDRSTRLEN];
+	struct dccp_conn_s *cdata = (void*)w;
+        /* the address in human readable form */
+        const char *a;
+        /* the port (in host-byte order) */
+        uint16_t p;
+
+        /* obtain the address in human readable form */
+        {
+                int fam = ud_sockaddr_fam(cdata->sa);
+                const struct sockaddr *addr = ud_sockaddr_addr(cdata->sa);
+
+                a = inet_ntop(fam, addr, buf, sizeof(buf));
+        }
+        p = ud_sockaddr_port(cdata->sa);
+
+	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
+	ev_io_shut(EV_A_ w);
 	return;
 }
 
@@ -487,40 +645,56 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 			}
 		}
 	case TWS_ST_SUP:
+		/* former ST_RDY/ST_SUP case pair in chck_cb() */
+		tws_send(ctx->tws);
+		/* and flush the queue */
+		quoq_flush_maybe(ctx);
 		break;
 	default:
 		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
+
 	old_st = st;
 	return;
 }
 
 static void
-chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
+dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 {
-	ctx_t ctx = w->data;
-	tws_st_t st;
+	static struct dccp_conn_s conns[8];
+	static size_t next = 0;
+	int s;
 
-	QUO_DEBUG("CHCK\n");
-
-	st = tws_state(ctx->tws);
-	QUO_DEBUG("STAT  %u\n", st);
-	switch (st) {
-	case TWS_ST_SUP:
-	case TWS_ST_RDY:
-		tws_send(ctx->tws);
-		break;
-	case TWS_ST_UNK:
-	case TWS_ST_DWN:
-		break;
-	default:
-		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
-		abort();
+	/* going down? */
+	if (UNLIKELY(w == NULL)) {
+		for (size_t i = 0; i < countof(conns); i++) {
+			if (conns[i].io->fd > 0) {
+				QUO_DEBUG("FINI  dccp/%d\n", conns[i].io->fd);
+				ev_io_shut(EV_A_ conns[i].io);
+			}
+		}
+		return;
 	}
 
-	/* just flush the queue */
-	quoq_flush_maybe(ctx);
+	QUO_DEBUG("DCCP %d\n", w->fd);
+
+	/* make way for this request */
+	if (conns[next].io->fd > 0) {
+		ev_io_shut(EV_A_ conns[next].io);
+	}
+
+	conns[next].sasz = sizeof(*conns[next].sa);
+	if ((s = accept(w->fd, &conns[next].sa->sa, &conns[next].sasz)) < 0) {
+		return;
+	}
+
+
+	ev_io_init(conns[next].io, dccp_data_cb, s, EV_READ);
+	ev_io_start(EV_A_ conns[next].io);
+	if (++next >= countof(conns)) {
+		next = 0;
+	}
 	return;
 }
 
@@ -574,8 +748,8 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
-	ev_check chck[1];
 	ev_io ctrl[1];
+	ev_io dccp[2];
 	/* final result */
 	int res = 0;
 
@@ -652,6 +826,56 @@ main(int argc, char *argv[])
 		ctx->beef = ud_chan_init(argi->beef_arg);
 	}
 
+	/* make a channel for http/dccp requests */
+	{
+		union ud_sockaddr_u sa = {
+			.sa6 = {
+				.sin6_family = AF_INET6,
+				.sin6_addr = in6addr_any,
+				.sin6_port = 0,
+			},
+		};
+		socklen_t sa_len = sizeof(sa);
+		int s;
+
+		if ((s = make_dccp()) < 0) {
+			/* just to indicate we have no socket */
+			dccp[0].fd = -1;
+		} else if (sock_listener(s, &sa) < 0) {
+			/* grrr, whats wrong now */
+			close(s);
+			dccp[0].fd = -1;
+		} else {
+			/* everything's brilliant */
+			ev_io_init(dccp, dccp_cb, s, EV_READ);
+			ev_io_start(EV_A_ dccp);
+
+			getsockname(s, &sa.sa, &sa_len);
+		}
+
+
+		if (countof(dccp) < 2) {
+			;
+		} else if ((s = make_tcp()) < 0) {
+			/* just to indicate we have no socket */
+			dccp[1].fd = -1;
+		} else if (sock_listener(s, &sa) < 0) {
+			/* bugger */
+			close(s);
+			dccp[1].fd = -1;
+		} else {
+			/* yay */
+			ev_io_init(dccp + 1, dccp_cb, s, EV_READ);
+			ev_io_start(EV_A_ dccp + 1);
+
+			getsockname(s, &sa.sa, &sa_len);
+		}
+
+		if (s >= 0) {
+			make_brag_uri(&sa, sa_len);
+		}
+	}
+
 	/* get ourselves a quote and sub queue */
 	ctx->qq = make_quoq();
 	ctx->sq = make_subq();
@@ -664,16 +888,11 @@ main(int argc, char *argv[])
 	ev_prepare_init(prep, prep_cb);
 	ev_prepare_start(EV_A_ prep);
 
-	chck->data = ctx;
-	ev_check_init(chck, chck_cb);
-	ev_check_start(EV_A_ chck);
-
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
 	ev_prepare_stop(EV_A_ prep);
-	ev_check_stop(EV_A_ chck);
 
 	/* get rid of the tws intrinsics */
 	QUO_DEBUG("FINI\n");
@@ -694,6 +913,16 @@ main(int argc, char *argv[])
 
 		ev_io_stop(EV_A_ ctrl);
 		ud_chan_fini(c);
+	}
+
+	/* detach http/dccp */
+	dccp_cb(EV_A_ NULL, 0);
+	for (size_t i = 0; i < countof(dccp); i++) {
+		int s = dccp[i].fd;
+
+		if (s > 0) {
+			ev_io_shut(EV_A_ dccp + i);
+		}
 	}
 
 	/* destroy the default evloop */

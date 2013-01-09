@@ -27,6 +27,7 @@ quo_tws_SOURCES += daemonise.c daemonise.h
 quo_tws_SOURCES += sdef.c sdef.h
 quo_tws_SOURCES += quo.c quo.h
 quo_tws_SOURCES += sub.c sub.h
+quo_tws_SOURCES += ud-sock.h
 EXTRA_quo_tws_SOURCES += proto-tx-ns.gperf proto-tx-ns.h
 EXTRA_quo_tws_SOURCES += proto-tx-attr.gperf proto-tx-attr.h
 EXTRA_quo_tws_SOURCES += proto-twsxml-tag.gperf
