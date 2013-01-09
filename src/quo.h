@@ -73,6 +73,17 @@ struct quo_s {
 	double val;
 };
 
+/* quoq callback aspects */
+struct quoq_cb_asp_s {
+	enum {
+		QUOQ_CB_UNK,
+		QUOQ_CB_FLUSH,
+	} type;
+};
+
+typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, const_sl1t_t, void*);
+
+
 /* ctors/dtors */
 extern quoq_t make_quoq(void);
 extern void free_quoq(quoq_t q);
@@ -88,7 +99,7 @@ extern void quoq_flush(quoq_t qq);
 /**
  * Convert ticks on the queue QQ to uterus sl1t. */
 extern void
-quoq_flush_cb(quoq_t qq, void(*cb)(const_sl1t_t, void*), void *clo);
+quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo);
 
 #if defined __cplusplus
 }

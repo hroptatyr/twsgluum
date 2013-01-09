@@ -341,10 +341,13 @@ quoq_flush(quoq_t qq)
 }
 
 void
-quoq_flush_cb(quoq_t qq, void(*cb)(const_sl1t_t, void*), void *clo)
+quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 {
 	struct timeval now[1];
 	struct sl1t_s l1t[1];
+	struct quoq_cb_asp_s asp = {
+		.type = QUOQ_CB_FLUSH,
+	};
 	quo_qqq_t qi;
 
 	/* time */
@@ -365,7 +368,7 @@ quoq_flush_cb(quoq_t qq, void(*cb)(const_sl1t_t, void*), void *clo)
 		}
 
 		/* call the callback */
-		cb(l1t, clo);
+		cb(asp, l1t, clo);
 
 		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
 			qp->p = qi->p;
