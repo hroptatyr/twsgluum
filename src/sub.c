@@ -62,7 +62,6 @@ struct sub_qqq_s {
 	struct gq_item_s i;
 
 	struct sub_s s;
-	uint32_t last_dsm;
 };
 
 struct subq_s {
