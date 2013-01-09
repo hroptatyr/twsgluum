@@ -203,7 +203,7 @@ make_qqq(quoq_t qq)
 		ptrdiff_t df;
 
 		assert(qq->q->free->ilst == NULL);
-		QUO_DEBUG("RESZ QQ -> %zu\n", nitems + 64);
+		QUO_DEBUG("RESZ  QQ  ->%zu\n", nitems + 64);
 		df = init_gq(qq->q, sizeof(*res), nitems + 64);
 		gq_rbld_ll(qq->sbuf, df);
 		check_q(qq);
@@ -327,7 +327,7 @@ quoq_flush(quoq_t qq)
 	while ((qi = pop_qqq(qq)) != NULL) {
 		quo_qqq_t qp;
 
-		QUO_DEBUG("FLSH %u %u %i %i\n",
+		QUO_DEBUG("FLSH  %u %u %i %i\n",
 			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
 
 		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
@@ -361,7 +361,7 @@ quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 	while ((qi = pop_qqq(qq)) != NULL) {
 		quo_qqq_t qp;
 
-		QUO_DEBUG("FLSH %u %u %i %i\n",
+		QUO_DEBUG("FLSH  %u %u %i %i\n",
 			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
 
 		if (fill_sl1t(l1t, qi) < 0) {

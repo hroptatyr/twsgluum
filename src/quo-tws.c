@@ -299,7 +299,7 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 		brag_uri_offset = uri_host_offs + len - 1;
 	}
 
-	QUO_DEBUG("adv_name: %s\n", brag_uri);
+	QUO_DEBUG("ADVN  %s\n", brag_uri);
 	return 0;
 }
 
@@ -393,20 +393,20 @@ quoq_flush_maybe(ctx_t ctx)
 
 /* tws interaction */
 static void
-infra_cb(tws_t tws, tws_cb_t what, struct tws_infra_clo_s clo)
+infra_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_infra_clo_s clo)
 {
 /* called from tws api for infra messages */
 	switch (what) {
 	case TWS_CB_INFRA_ERROR:
-		QUO_DEBUG("tws %p: oid %u  code %u: %s\n",
-			tws, clo.oid, clo.code, (const char*)clo.data);
+		QUO_DEBUG("NFRA  oid %u  code %u: %s\n",
+			clo.oid, clo.code, (const char*)clo.data);
 		break;
 	case TWS_CB_INFRA_CONN_CLOSED:
-		QUO_DEBUG("tws %p: connection closed\n", tws);
+		QUO_DEBUG("NFRA  connection closed\n");
 		break;
 	default:
-		QUO_DEBUG("%p infra: what %u  oid %u  code %u  data %p\n",
-			tws, what, clo.oid, clo.code, clo.data);
+		QUO_DEBUG("NFRA  what %u  oid %u  code %u  data %p\n",
+			what, clo.oid, clo.code, clo.data);
 		break;
 	}
 	return;
@@ -446,7 +446,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 		}
 		q.idx = (uint16_t)clo.oid;
 		q.val = clo.val;
-		QUO_DEBUG("TICK: what %u  oid %u  tt %u  data %p\n",
+		QUO_DEBUG("TICK  what %u  oid %u  tt %u  data %p\n",
 			what, clo.oid, clo.tt, clo.data);
 		quoq_add(((ctx_t)tws)->qq, q);
 		break;
@@ -467,7 +467,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 
 	default:
 	fucked:
-		QUO_DEBUG("FUCK pre: what %u  oid %u  tt %u  data %p\n",
+		QUO_DEBUG("FUCK  PRE  what %u  oid %u  tt %u  data %p\n",
 			what, clo.oid, clo.tt, clo.data);
 		break;
 	}

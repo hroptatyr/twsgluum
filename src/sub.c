@@ -102,7 +102,7 @@ pop_q(subq_t sq)
 		ptrdiff_t df;
 
 		assert(sq->q->free->ilst == NULL);
-		SUB_DEBUG("SQ RESIZE -> %zu\n", nitems + 64);
+		SUB_DEBUG("RESZ  SQ  ->%zu\n", nitems + 64);
 		df = init_gq(sq->q, sizeof(*res), nitems + 64);
 		gq_rbld_ll(sq->sbuf, df);
 		check_q(sq);
@@ -152,7 +152,7 @@ subq_add(subq_t sq, struct sub_s s)
 	si->s = s;
 	/* and push it */
 	gq_push_tail(sq->sbuf, (gq_item_t)si);
-	SUB_DEBUG("PUSH SQ %p\n", si);
+	SUB_DEBUG("PUSH  SQ  %p\n", si);
 	return;
 }
 
