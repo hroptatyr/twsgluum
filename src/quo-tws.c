@@ -261,8 +261,10 @@ brag(ctx_t ctx, udpc_seria_t ser, uint16_t idx)
 }
 
 static void
-flush_cb(const_sl1t_t l1t, struct flush_clo_s *clo)
+flush_cb(struct quoq_cb_asp_s asp, const_sl1t_t l1t, struct flush_clo_s *clo)
 {
+	assert(asp.type == QUOQ_CB_FLUSH);
+
 	if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 0);
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 1);
