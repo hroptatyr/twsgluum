@@ -76,6 +76,7 @@
 #include "tws.h"
 #include "sdef.h"
 #include "nifty.h"
+#include "ud-sock.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -114,13 +115,6 @@ struct ctx_s {
 
 
 /* sock helpers, should be somwhere else */
-static void
-setsock_rcvz(int s, int z)
-{
-	setsockopt(s, SOL_SOCKET, SO_RCVBUF, &z, sizeof(z));
-	return;
-}
-
 static int
 tws_sock(const char *host, short unsigned int port)
 {
