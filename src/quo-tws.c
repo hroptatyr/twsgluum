@@ -513,6 +513,12 @@ init_subs(tws_t tws, const char *file)
 }
 
 
+struct dccp_conn_s {
+	ev_io io[1];
+	union ud_sockaddr_u sa[1];
+	socklen_t sasz;
+};
+
 static void
 ev_io_shut(EV_P_ ev_io *w)
 {
@@ -522,6 +528,30 @@ ev_io_shut(EV_P_ ev_io *w)
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
 	w->fd = -1;
+	return;
+}
+
+static void
+dccp_data_cb(EV_P_ ev_io *w, int UNUSED(re))
+{
+        static char buf[INET6_ADDRSTRLEN];
+	struct dccp_conn_s *cdata = (void*)w;
+        /* the address in human readable form */
+        const char *a;
+        /* the port (in host-byte order) */
+        uint16_t p;
+
+        /* obtain the address in human readable form */
+        {
+                int fam = ud_sockaddr_fam(cdata->sa);
+                const struct sockaddr *addr = ud_sockaddr_addr(cdata->sa);
+
+                a = inet_ntop(fam, addr, buf, sizeof(buf));
+        }
+        p = ud_sockaddr_port(cdata->sa);
+
+	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
+	ev_io_shut(EV_A_ w);
 	return;
 }
 
@@ -632,18 +662,39 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 static void
 dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 {
-	union ud_sockaddr_u sa;
-	socklen_t sasz = sizeof(sa);
+	static struct dccp_conn_s conns[8];
+	static size_t next = 0;
 	int s;
 
-	QUO_DEBUG("DCCP %d\n", w->fd);
-
-	if ((s = accept(w->fd, &sa.sa, &sasz)) < 0) {
+	/* going down? */
+	if (UNLIKELY(w == NULL)) {
+		for (size_t i = 0; i < countof(conns); i++) {
+			if (conns[i].io->fd > 0) {
+				QUO_DEBUG("FINI  dccp/%d\n", conns[i].io->fd);
+				ev_io_shut(EV_A_ conns[i].io);
+			}
+		}
 		return;
 	}
 
-	/* close it right away, we're not in the mood for this now */
-	close(s);
+	QUO_DEBUG("DCCP %d\n", w->fd);
+
+	/* make way for this request */
+	if (conns[next].io->fd > 0) {
+		ev_io_shut(EV_A_ conns[next].io);
+	}
+
+	conns[next].sasz = sizeof(*conns[next].sa);
+	if ((s = accept(w->fd, &conns[next].sa->sa, &conns[next].sasz)) < 0) {
+		return;
+	}
+
+
+	ev_io_init(conns[next].io, dccp_data_cb, s, EV_READ);
+	ev_io_start(EV_A_ conns[next].io);
+	if (++next >= countof(conns)) {
+		next = 0;
+	}
 	return;
 }
 
@@ -865,6 +916,7 @@ main(int argc, char *argv[])
 	}
 
 	/* detach http/dccp */
+	dccp_cb(EV_A_ NULL, 0);
 	for (size_t i = 0; i < countof(dccp); i++) {
 		int s = dccp[i].fd;
 
