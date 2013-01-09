@@ -1,4 +1,4 @@
-/*** sdef.h -- security definitions
+/*** websvc.h -- web services
  *
  * Copyright (C) 2012-2013 Sebastian Freundt
  *
@@ -34,35 +34,34 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_sdef_h_
-#define INCLUDED_sdef_h_
+#if !defined INCLUDED_websvc_h_
+#define INCLUDED_websvc_h_
 
-#if defined __cplusplus
-extern "C" {
-# if defined __GNUC__
-#  define restrict	__restrict__
-# else
-#  define restrict
-# endif
-#endif	/* __cplusplus */
+#include <stdlib.h>
+#include <stdint.h>
+#include "sub.h"
 
-typedef void *tws_cont_t;
-typedef const void *tws_const_cont_t;
+typedef enum {
+	WEBSVC_F_UNK,
+	WEBSVC_F_SECDEF,
+} websvc_f_t;
 
-typedef void *tws_sdef_t;
-typedef const void *tws_const_sdef_t;
+struct websvc_s {
+	websvc_f_t ty;
 
-/**
- * Serialise SDEF into BUF of size BSZ, return the number of bytes written. */
-extern ssize_t tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t);
+	union {
+		struct {
+			uint16_t idx;
+		} secdef;
+	};
+};
 
-extern int
-tws_deser_cont(
-	const char *xml, size_t len,
-	int(*cb)(tws_cont_t, void *clo), void *clo);
+/* generic websvc determinator, parses the request */
+extern websvc_f_t
+websvc_from_request(struct websvc_s *tgt, const char *req, size_t len);
 
-#if defined __cplusplus
-}
-#endif	/* __cplusplus */
+/* generate secdef response */
+extern size_t
+websvc_secdef(char *restrict tgt, size_t tsz, subq_t sq, struct websvc_s sd);
 
-#endif	/* INCLUDED_sdef_h_ */
+#endif	/* INCLUDED_websvc_h_ */

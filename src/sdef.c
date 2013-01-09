@@ -324,4 +324,11 @@ tws_deser_cont(
 }
 #endif	/* HAVE_EXPAT_H */
 
+/* serialiser */
+ssize_t
+tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t sd)
+{
+	return -1;
+}
+
 /* sdef.c ends here */
