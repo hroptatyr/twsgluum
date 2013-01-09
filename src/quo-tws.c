@@ -75,6 +75,7 @@
 #include "daemonise.h"
 #include "tws.h"
 #include "sdef.h"
+#include "websvc.h"
 #include "nifty.h"
 #include "ud-sock.h"
 
@@ -534,12 +535,29 @@ ev_io_shut(EV_P_ ev_io *w)
 static void
 dccp_data_cb(EV_P_ ev_io *w, int UNUSED(re))
 {
-        static char buf[INET6_ADDRSTRLEN];
+	/* the final \n will be subst'd later on */
+	static const char hdr[] = "\
+HTTP/1.1 200 OK\r\n\
+Server: quo-tws\r\n\
+Content-Length: % 5zu\r\n\
+Content-Type: text/xml\r\n\
+\r";
+	/* hdr is a format string and hdr_len is as wide as the result printed
+	 * later on */
+	static const size_t hdr_len = sizeof(hdr);
+	/* buffer, used for logging, input and output */
+        static char buf[4096];
 	struct dccp_conn_s *cdata = (void*)w;
+	ctx_t ctx = w->data;
         /* the address in human readable form */
         const char *a;
         /* the port (in host-byte order) */
         uint16_t p;
+	ssize_t nrd;
+	char *rsp = buf + hdr_len;
+	const size_t rsp_len = sizeof(buf) - hdr_len;
+	size_t cont_len;
+	struct websvc_s voodoo;
 
         /* obtain the address in human readable form */
         {
@@ -551,6 +569,36 @@ dccp_data_cb(EV_P_ ev_io *w, int UNUSED(re))
         p = ud_sockaddr_port(cdata->sa);
 
 	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
+
+	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
+		goto clo;
+	} else if ((size_t)nrd < sizeof(buf)) {
+		buf[nrd] = '\0';
+	} else {
+		/* uh oh mega request wtf? */
+		buf[sizeof(buf) - 1] = '\0';
+	}
+
+	switch (websvc_from_request(&voodoo, buf, nrd)) {
+	default:
+	case WEBSVC_F_UNK:
+		goto clo;
+
+	case WEBSVC_F_SECDEF:
+		cont_len = websvc_secdef(rsp, rsp_len, ctx->sq, voodoo);
+		break;
+	}
+
+	/* prepare the header */
+	(void)snprintf(buf, sizeof(buf), hdr, cont_len);
+	buf[hdr_len - 1] = '\n';
+
+	/* and append the actual contents */
+	send(w->fd, buf, hdr_len + cont_len, 0);
+
+	/* leave the connection open */
+	return;
+clo:
 	ev_io_shut(EV_A_ w);
 	return;
 }
@@ -664,6 +712,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 {
 	static struct dccp_conn_s conns[8];
 	static size_t next = 0;
+	ctx_t ctx = w->data;
 	int s;
 
 	/* going down? */
@@ -689,7 +738,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		return;
 	}
 
-
+	conns[next].io->data = ctx;
 	ev_io_init(conns[next].io, dccp_data_cb, s, EV_READ);
 	ev_io_start(EV_A_ conns[next].io);
 	if (++next >= countof(conns)) {
@@ -847,7 +896,8 @@ main(int argc, char *argv[])
 			dccp[0].fd = -1;
 		} else {
 			/* everything's brilliant */
-			ev_io_init(dccp, dccp_cb, s, EV_READ);
+			dccp[0].data = ctx;
+			ev_io_init(dccp + 0, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp);
 
 			getsockname(s, &sa.sa, &sa_len);
@@ -865,6 +915,7 @@ main(int argc, char *argv[])
 			dccp[1].fd = -1;
 		} else {
 			/* yay */
+			dccp[1].data = ctx;
 			ev_io_init(dccp + 1, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp + 1);
 
