@@ -347,4 +347,50 @@ parse_req_typ(const char *typ)
 	return rtc->rtid;
 }
 
+
+/* other stuff that has no better place */
+tws_cont_t
+tws_dup_cont(tws_const_cont_t c)
+{
+	const IB::Contract *ibc = (const IB::Contract*)c;
+	IB::Contract *res = new IB::Contract;
+
+	*res = *ibc;
+	return (tws_cont_t)res;
+}
+
+void
+tws_free_cont(tws_cont_t c)
+{
+	delete (IB::Contract*)c;
+	return;
+}
+
+tws_sdef_t
+tws_dup_sdef(tws_const_sdef_t s)
+{
+	const IB::ContractDetails *ibs = (const IB::ContractDetails*)s;
+	IB::ContractDetails *res = new IB::ContractDetails;
+
+	*res = *ibs;
+	return (tws_sdef_t)res;
+}
+
+void
+tws_free_sdef(tws_sdef_t s)
+{
+	delete (IB::ContractDetails*)s;
+	return;
+}
+
+tws_cont_t
+tws_sdef_make_cont(tws_const_sdef_t x)
+{
+	const IB::ContractDetails *ibcd = (const IB::ContractDetails*)x;
+	IB::Contract *res = new IB::Contract;
+
+	*res = ibcd->summary;
+	return (tws_cont_t)res;
+}
+
 /* sdef-twsxml.cpp ends here */
