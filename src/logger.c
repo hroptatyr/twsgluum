@@ -49,7 +49,7 @@ void *logerr;
 static void
 __open_logerr(const char logfn[static 1])
 {
-	logerr = fopen(logfn, "w");
+	logerr = fopen(logfn, "a");
 	return;
 }
 
