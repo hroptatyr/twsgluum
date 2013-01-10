@@ -486,7 +486,7 @@ __sub_sdef(tws_cont_t ins, void *clo)
  * those responses will show up in pre_cb() though */
 	tws_t tws = clo;
 
-	QUO_DEBUG("SUBC %p\n", ins);
+	QUO_DEBUG("SUBC  %p\n", ins);
 	if (tws_req_sdef(tws, ins) < 0) {
 		logger("cannot acquire secdefs of %p", ins);
 	}
