@@ -975,11 +975,10 @@ main(int argc, char *argv[])
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
+	QUO_DEBUG("FINI\n");
 	ev_prepare_stop(EV_A_ prep);
 
-	/* get rid of the tws intrinsics */
-	QUO_DEBUG("FINI\n");
-	(void)fini_tws(ctx->tws);
+	/* propagate tws shutdown and resource freeing */
 	reco_cb(EV_A_ NULL, 0);
 
 	/* finalise quote queue */
