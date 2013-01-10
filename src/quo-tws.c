@@ -490,7 +490,8 @@ __sub_sdef(tws_cont_t ins, void *clo)
 	if (tws_req_sdef(tws, ins) < 0) {
 		logger("cannot acquire secdefs of %p", ins);
 	}
-	return 0;
+	/* indicate that we don't need INS any longer */
+	return 1;
 }
 
 static void

@@ -312,7 +312,7 @@ sax_eo_TWSXML_elt(__ctx_t ctx, const char *elem)
 			TX_DEBUG("internal parser error, cont is NULL\n");
 			break;
 		} else if (ctx->cont_cb == NULL ||
-			   ctx->cont_cb(ins, ctx->cbclo) < 0) {
+			   ctx->cont_cb(ins, ctx->cbclo)) {
 			delete (IB::Contract*)ins;
 		}
 		break;
