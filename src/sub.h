@@ -55,6 +55,8 @@ struct sub_s {
 	tws_sdef_t sdef;
 };
 
+typedef void(*subq_cb_f)(struct sub_s, void*);
+
 
 /* ctors dtors */
 extern subq_t make_subq(void);
@@ -64,6 +66,9 @@ extern void free_subq(subq_t);
 extern void subq_add(subq_t sq, struct sub_s s);
 
 extern sub_t subq_find_by_idx(subq_t sq, uint32_t idx);
+
+/* flushing iterator */
+extern void subq_flush_cb(subq_t sq, subq_cb_f cb, void *clo);
 
 #if defined __cplusplus
 }

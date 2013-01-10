@@ -486,11 +486,12 @@ __sub_sdef(tws_cont_t ins, void *clo)
  * those responses will show up in pre_cb() though */
 	tws_t tws = clo;
 
-	QUO_DEBUG("SUBC %p\n", ins);
+	QUO_DEBUG("SUBC  %p\n", ins);
 	if (tws_req_sdef(tws, ins) < 0) {
 		logger("cannot acquire secdefs of %p", ins);
 	}
-	return 0;
+	/* indicate that we don't need INS any longer */
+	return 1;
 }
 
 static void
@@ -516,6 +517,23 @@ init_subs(tws_t tws, const char *file)
 	return;
 }
 
+static void
+sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
+{
+	tws_free_sdef(s.sdef);
+	return;
+}
+
+static void
+twsc_conn_clos(ctx_t ctx)
+{
+	/* get rid of our subscription queue */
+	subq_flush_cb(ctx->sq, sq_chuck_cb, NULL);
+	/* lastly just chuck the whole tws object */
+	(void)fini_tws(ctx->tws);
+	return;
+}
+
 
 struct dccp_conn_s {
 	ev_io io[1];
@@ -523,14 +541,19 @@ struct dccp_conn_s {
 	socklen_t sasz;
 };
 
-static void
-ev_io_shut(EV_P_ ev_io *w)
+static inline void
+shut_sock(int fd)
 {
-	int fd = w->fd;
-
-	ev_io_stop(EV_A_ w);
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
+	return;
+}
+
+static void
+ev_io_shut(EV_P_ ev_io w[static 1])
+{
+	ev_io_stop(EV_A_ w);
+	shut_sock(w->fd);
 	w->fd = -1;
 	return;
 }
@@ -607,18 +630,20 @@ clo:
 }
 
 static void
-twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
+twsc_cb(EV_P_ ev_io w[static 1], int rev)
 {
 	static char noop[1];
 	ctx_t ctx = w->data;
 
 	QUO_DEBUG("BANG  %x\n", rev);
-	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
+	if ((rev & EV_CUSTOM)/*hangup requested*/ ||
+	    recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
+		/* perform some clean up work on our data */
+		twsc_conn_clos(ctx);
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
 		w->data = NULL;
-		(void)fini_tws(ctx->tws);
 		/* we should set a timer here for retrying */
 		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
@@ -639,7 +664,9 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
 		QUO_DEBUG("FINI  %d\n", twsc->fd);
-		ev_io_shut(EV_A_ twsc);
+		/* call that twsc watcher manually to free subq resources
+		 * mainloop isn't running any more */
+		twsc_cb(EV_A_ twsc, EV_CUSTOM);
 		return;
 	}
 	/* otherwise proceed normally */
@@ -762,6 +789,27 @@ beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
 }
 
 static void
+sighup_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
+{
+	QUO_DEBUG("HUP!\n");
+	/* just act as though we're going down */
+	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
+	/* HUP the logfile */
+	rotate_logerr();
+	return;
+}
+
+static void
+sigusr1_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
+{
+/* for log rotation only */
+	QUO_DEBUG("USR1\n");
+	/* HUP the logfile */
+	rotate_logerr();
+	return;
+}
+
+static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -798,6 +846,7 @@ main(int argc, char *argv[])
 	/* ev goodies */
 	ev_signal sigint_watcher[1];
 	ev_signal sighup_watcher[1];
+	ev_signal sigusr1_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
 	ev_io ctrl[1];
@@ -839,8 +888,12 @@ main(int argc, char *argv[])
 	ctx->subf = argi->inputs;
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
+	if (argi->daemonise_given && detach() < 0) {
 		perror("daemonisation failed");
+		res = 1;
+		goto out;
+	} else if (argi->log_given && open_logerr(argi->log_arg) < 0) {
+		perror("cannot open log file");
 		res = 1;
 		goto out;
 	}
@@ -853,8 +906,10 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sigint_watcher);
 	ev_signal_init(sigterm_watcher, sigall_cb, SIGTERM);
 	ev_signal_start(EV_A_ sigterm_watcher);
-	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
+	ev_signal_init(sighup_watcher, sighup_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
+	ev_signal_init(sigusr1_watcher, sigusr1_cb, SIGUSR1);
+	ev_signal_start(EV_A_ sigusr1_watcher);
 
 	/* attach a multicast listener
 	 * we add this quite late so that it's unlikely that a plethora of
@@ -946,12 +1001,11 @@ main(int argc, char *argv[])
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
+	QUO_DEBUG("FINI\n");
 	ev_prepare_stop(EV_A_ prep);
 
-	/* get rid of the tws intrinsics */
-	QUO_DEBUG("FINI\n");
-	(void)fini_tws(ctx->tws);
-	reco_cb(EV_A_ NULL, 0);
+	/* propagate tws shutdown and resource freeing */
+	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
 
 	/* finalise quote queue */
 	free_quoq(ctx->qq);

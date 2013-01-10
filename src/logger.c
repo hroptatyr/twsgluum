@@ -37,12 +37,67 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "logger.h"
+#include "nifty.h"
 
+static const char *glogfn;
 void *logerr;
+
+static int
+__open_logerr(const char logfn[static 1])
+{
+	if (UNLIKELY((logerr = fopen(logfn, "a")) == NULL)) {
+		int errno_sv = errno;
+
+		/* backup plan */
+		logerr = fopen("/dev/null", "w");
+		errno = errno_sv;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+__close_logerr(void)
+{
+	if (logerr != NULL) {
+		fflush(logerr);
+		fclose(logerr);
+	}
+	logerr = NULL;
+	return;
+}
+
+int
+open_logerr(const char *logfn)
+{
+	int res = 0;
+
+	if ((glogfn = logfn) == NULL ||
+	    (res = __open_logerr(logfn)) < 0) {
+		;
+	} else {
+		atexit(__close_logerr);
+	}
+	return res;
+}
+
+void
+rotate_logerr(void)
+{
+	if (glogfn == NULL) {
+		return;
+	}
+	/* otherwise close and open again */
+	__close_logerr();
+	(void)__open_logerr(glogfn);
+	return;
+}
 
 __attribute__((format(printf, 2, 3))) void
 error(int eno, const char *fmt, ...)

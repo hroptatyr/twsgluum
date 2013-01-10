@@ -189,7 +189,7 @@ sax_tx_aid_from_attr(const char *attr)
 static void
 proc_TX_xmlns(__ctx_t ctx, const char *pref, const char *value)
 {
-	TX_DEBUG("reg'ging name space %s <- %s\n", pref, value);
+	TX_DEBUG("XMLR  %s <- %s", pref, value);
 	ptx_reg_ns(ctx, pref, value);
 	return;
 }

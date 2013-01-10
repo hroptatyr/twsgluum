@@ -47,6 +47,14 @@ extern "C" {
 extern void *logerr;
 
 /**
+ * Open the logfile with pathname LOGFN. */
+extern int open_logerr(const char *logfn);
+/**
+ * Rotate the log file.
+ * This actually just closes and opens the file again. */
+extern void rotate_logerr(void);
+
+/**
  * Like perror() but for our log file. */
 extern __attribute__((format(printf, 2, 3))) void
 error(int eno, const char *fmt, ...);

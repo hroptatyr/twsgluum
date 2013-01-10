@@ -154,14 +154,6 @@ tws_cont_x(tws_cont_t tgt, unsigned int nsid, unsigned int aid, const char *val)
 
 
 static void
-proc_FIX_xmlns(__ctx_t ctx, const char *pref, const char *value)
-{
-	TX_DEBUG("reg'ging name space %s <- %s\n", pref, value);
-	ptx_reg_ns(ctx, pref, value);
-	return;
-}
-
-static void
 proc_INSTRMT_attr(tws_cont_t ins, tx_nsid_t ns, fixml_aid_t aid, const char *v)
 {
 	tws_cont_x(ins, ns, aid, v);
@@ -189,7 +181,7 @@ proc_FIXML_attr(__ctx_t ctx, const char *attr, const char *value)
 
 	switch (aid) {
 	case FIX_ATTR_XMLNS:
-		proc_FIX_xmlns(ctx, rattr == attr ? NULL : rattr, value);
+		/* should have been initted already */
 		break;
 	case FIX_ATTR_S:
 	case FIX_ATTR_R:

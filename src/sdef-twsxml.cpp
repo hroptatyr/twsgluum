@@ -116,14 +116,6 @@ check_tx_attr(__ctx_t ctx, const char *attr)
 
 
 static void
-proc_TX_xmlns(__ctx_t ctx, const char *pref, const char *value)
-{
-	TX_DEBUG("reg'ging name space %s <- %s\n", pref, value);
-	ptx_reg_ns(ctx, pref, value);
-	return;
-}
-
-static void
 proc_COMBOLEG_attr(
 	tws_cont_t leg, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
 {
@@ -193,7 +185,7 @@ proc_TWSXML_attr(__ctx_t ctx, const char *attr, const char *value)
 
 	switch (aid) {
 	case TX_ATTR_XMLNS:
-		proc_TX_xmlns(ctx, rattr == attr ? NULL : rattr, value);
+		/* should have been initted already */
 		break;
 	default:
 		TX_DEBUG("WARN: unknown attr %s\n", attr);
@@ -312,7 +304,7 @@ sax_eo_TWSXML_elt(__ctx_t ctx, const char *elem)
 			TX_DEBUG("internal parser error, cont is NULL\n");
 			break;
 		} else if (ctx->cont_cb == NULL ||
-			   ctx->cont_cb(ins, ctx->cbclo) < 0) {
+			   ctx->cont_cb(ins, ctx->cbclo)) {
 			delete (IB::Contract*)ins;
 		}
 		break;
