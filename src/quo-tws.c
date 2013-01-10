@@ -490,7 +490,8 @@ __sub_sdef(tws_cont_t ins, void *clo)
 	if (tws_req_sdef(tws, ins) < 0) {
 		logger("cannot acquire secdefs of %p", ins);
 	}
-	return 0;
+	/* indicate that we don't need INS any longer */
+	return 1;
 }
 
 static void
@@ -516,6 +517,23 @@ init_subs(tws_t tws, const char *file)
 	return;
 }
 
+static void
+sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
+{
+	tws_free_sdef(s.sdef);
+	return;
+}
+
+static void
+twsc_conn_clos(ctx_t ctx)
+{
+	/* get rid of our subscription queue */
+	subq_flush_cb(ctx->sq, sq_chuck_cb, NULL);
+	/* lastly just chuck the whole tws object */
+	(void)fini_tws(ctx->tws);
+	return;
+}
+
 
 struct dccp_conn_s {
 	ev_io io[1];
@@ -523,14 +541,19 @@ struct dccp_conn_s {
 	socklen_t sasz;
 };
 
-static void
-ev_io_shut(EV_P_ ev_io *w)
+static inline void
+shut_sock(int fd)
 {
-	int fd = w->fd;
-
-	ev_io_stop(EV_A_ w);
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
+	return;
+}
+
+static void
+ev_io_shut(EV_P_ ev_io w[static 1])
+{
+	ev_io_stop(EV_A_ w);
+	shut_sock(w->fd);
 	w->fd = -1;
 	return;
 }
@@ -607,18 +630,19 @@ clo:
 }
 
 static void
-twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
+twsc_cb(EV_P_ ev_io w[static 1], int UNUSED(rev))
 {
 	static char noop[1];
 	ctx_t ctx = w->data;
 
 	QUO_DEBUG("BANG  %x\n", rev);
 	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
+		/* perform some clean up work on our data */
+		twsc_conn_clos(ctx);
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
 		w->data = NULL;
-		(void)fini_tws(ctx->tws);
 		/* we should set a timer here for retrying */
 		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
@@ -639,7 +663,11 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
 		QUO_DEBUG("FINI  %d\n", twsc->fd);
-		ev_io_shut(EV_A_ twsc);
+		/* close tws client's socket (gracefully) */
+		shut_sock(twsc->fd);
+		/* call that twsc watcher manually to free subq resources
+		 * mainloop isn't running any more */
+		twsc_cb(EV_A_ twsc, 0);
 		return;
 	}
 	/* otherwise proceed normally */
@@ -946,11 +974,10 @@ main(int argc, char *argv[])
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
+	QUO_DEBUG("FINI\n");
 	ev_prepare_stop(EV_A_ prep);
 
-	/* get rid of the tws intrinsics */
-	QUO_DEBUG("FINI\n");
-	(void)fini_tws(ctx->tws);
+	/* propagate tws shutdown and resource freeing */
 	reco_cb(EV_A_ NULL, 0);
 
 	/* finalise quote queue */
