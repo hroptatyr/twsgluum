@@ -630,13 +630,14 @@ clo:
 }
 
 static void
-twsc_cb(EV_P_ ev_io w[static 1], int UNUSED(rev))
+twsc_cb(EV_P_ ev_io w[static 1], int rev)
 {
 	static char noop[1];
 	ctx_t ctx = w->data;
 
 	QUO_DEBUG("BANG  %x\n", rev);
-	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
+	if ((rev & EV_CUSTOM)/*hangup requested*/ ||
+	    recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
 		/* perform some clean up work on our data */
 		twsc_conn_clos(ctx);
 		/* uh oh */
@@ -663,11 +664,9 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
 		QUO_DEBUG("FINI  %d\n", twsc->fd);
-		/* close tws client's socket (gracefully) */
-		shut_sock(twsc->fd);
 		/* call that twsc watcher manually to free subq resources
 		 * mainloop isn't running any more */
-		twsc_cb(EV_A_ twsc, 0);
+		twsc_cb(EV_A_ twsc, EV_CUSTOM);
 		return;
 	}
 	/* otherwise proceed normally */
@@ -978,7 +977,7 @@ main(int argc, char *argv[])
 	ev_prepare_stop(EV_A_ prep);
 
 	/* propagate tws shutdown and resource freeing */
-	reco_cb(EV_A_ NULL, 0);
+	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
 
 	/* finalise quote queue */
 	free_quoq(ctx->qq);
