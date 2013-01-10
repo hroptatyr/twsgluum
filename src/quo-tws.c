@@ -516,6 +516,14 @@ init_subs(tws_t tws, const char *file)
 	return;
 }
 
+static void
+twsc_conn_clos(ctx_t ctx)
+{
+	/* lastly just chuck the whole tws object */
+	(void)fini_tws(ctx->tws);
+	return;
+}
+
 
 struct dccp_conn_s {
 	ev_io io[1];
@@ -614,18 +622,19 @@ clo:
 }
 
 static void
-twsc_cb(EV_P_ ev_io *w, int UNUSED(rev))
+twsc_cb(EV_P_ ev_io w[static 1], int UNUSED(rev))
 {
 	static char noop[1];
 	ctx_t ctx = w->data;
 
 	QUO_DEBUG("BANG  %x\n", rev);
 	if (recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
+		/* perform some clean up work on our data */
+		twsc_conn_clos(ctx);
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
 		w->data = NULL;
-		(void)fini_tws(ctx->tws);
 		/* we should set a timer here for retrying */
 		QUO_DEBUG("AXAX  scheduling reconnect\n");
 		return;
