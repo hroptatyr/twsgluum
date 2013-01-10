@@ -49,11 +49,7 @@ extern void *logerr;
 
 /**
  * Detach the process and open LOGFN as a file stream for logging. */
-extern pid_t detach(const char *logfn);
-
-/**
- * Rotate the log file. */
-extern void rotate_logfn(void);
+extern pid_t detach(void);
 
 #if defined __cplusplus
 }

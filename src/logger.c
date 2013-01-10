@@ -37,12 +37,55 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "logger.h"
 
+static const char *glogfn;
 void *logerr;
+
+static void
+__open_logerr(const char logfn[static 1])
+{
+	logerr = fopen(logfn, "w");
+	return;
+}
+
+static void
+__close_logerr(void)
+{
+	if (logerr != NULL) {
+		fclose(logerr);
+	}
+	logerr = NULL;
+	return;
+}
+
+void
+open_logerr(const char *logfn)
+{
+	if ((glogfn = logfn) != NULL) {
+		__open_logerr(logfn);
+		atexit(__close_logerr);
+	} else {
+		logerr = stderr;
+	}
+	return;
+}
+
+void
+rotate_logerr(void)
+{
+	if (glogfn == NULL) {
+		return;
+	}
+	/* otherwise close and open again */
+	__close_logerr();
+	__open_logerr(glogfn);
+	return;
+}
 
 __attribute__((format(printf, 2, 3))) void
 error(int eno, const char *fmt, ...)

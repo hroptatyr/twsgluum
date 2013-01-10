@@ -342,10 +342,13 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach("/tmp/ox-tws.log") < 0) {
+	if (argi->daemonise_given && detach() < 0) {
 		perror("daemonisation failed");
 		res = 1;
 		goto out;
+	} else if (argi->daemonise_given) {
+		/* logging */
+		open_logerr("/tmp/ox-tws.log");
 	}
 
 	/* prepare for hard slavery */

@@ -875,10 +875,13 @@ main(int argc, char *argv[])
 	ctx->subf = argi->inputs;
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach("/tmp/quo-tws.log") < 0) {
+	if (argi->daemonise_given && detach() < 0) {
 		perror("daemonisation failed");
 		res = 1;
 		goto out;
+	} else if (argi->daemonise_given) {
+		/* logging */
+		open_logerr("/tmp/quo-tws.log");
 	}
 
 	/* initialise the main loop */
