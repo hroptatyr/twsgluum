@@ -346,9 +346,10 @@ main(int argc, char *argv[])
 		perror("daemonisation failed");
 		res = 1;
 		goto out;
-	} else if (argi->daemonise_given) {
-		/* logging */
-		open_logerr("/tmp/pf-tws.log");
+	} else if (argi->log_given && open_logerr(argi->log_arg) < 0) {
+		perror("cannot open log file");
+		res = 1;
+		goto out;
 	}
 
 	/* prepare for hard slavery */
