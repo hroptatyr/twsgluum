@@ -40,17 +40,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "logger.h"
+#include "nifty.h"
 
 static const char *glogfn;
 void *logerr;
 
-static void
+static int
 __open_logerr(const char logfn[static 1])
 {
-	logerr = fopen(logfn, "a");
-	return;
+	if (UNLIKELY((logerr = fopen(logfn, "a")) == NULL)) {
+		return -1;
+	}
+	return 0;
 }
 
 static void
@@ -63,16 +67,25 @@ __close_logerr(void)
 	return;
 }
 
-void
+int
 open_logerr(const char *logfn)
 {
-	if ((glogfn = logfn) != NULL) {
-		__open_logerr(logfn);
-		atexit(__close_logerr);
+	int errno_sv = 0;
+	int res = 0;
+
+	/* just to go in with a clean slate */
+	errno = 0;
+	if ((glogfn = logfn) == NULL ||
+	    (res = __open_logerr(logfn)) < 0) {
+		errno_sv = errno;
+		/* just to have a logerr object *
+		 * don't bother checking its result, i'd rather crash */
+		logerr = fopen("/dev/null", "w");
 	} else {
-		logerr = stderr;
+		atexit(__close_logerr);
 	}
-	return;
+	errno = errno_sv;
+	return res;
 }
 
 void

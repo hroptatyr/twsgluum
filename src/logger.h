@@ -48,7 +48,7 @@ extern void *logerr;
 
 /**
  * Open the logfile with pathname LOGFN. */
-extern void open_logerr(const char *logfn);
+extern int open_logerr(const char *logfn);
 /**
  * Rotate the log file.
  * This actually just closes and opens the file again. */
