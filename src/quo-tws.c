@@ -517,8 +517,17 @@ init_subs(tws_t tws, const char *file)
 }
 
 static void
+sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
+{
+	tws_free_sdef(s.sdef);
+	return;
+}
+
+static void
 twsc_conn_clos(ctx_t ctx)
 {
+	/* get rid of our subscription queue */
+	subq_flush_cb(ctx->sq, sq_chuck_cb, NULL);
 	/* lastly just chuck the whole tws object */
 	(void)fini_tws(ctx->tws);
 	return;
