@@ -794,6 +794,8 @@ sighup_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 	QUO_DEBUG("HUP!\n");
 	/* just act as though we're going down */
 	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
+	/* HUP the logfile */
+	rotate_logerr();
 	return;
 }
 
