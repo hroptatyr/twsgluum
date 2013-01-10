@@ -61,6 +61,7 @@ static void
 __close_logerr(void)
 {
 	if (logerr != NULL) {
+		fflush(logerr);
 		fclose(logerr);
 	}
 	logerr = NULL;
