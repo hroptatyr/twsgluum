@@ -523,14 +523,21 @@ struct dccp_conn_s {
 	socklen_t sasz;
 };
 
+static inline void
+shut_sock(int fd)
+{
+	shutdown(fd, SHUT_RDWR);
+	close(fd);
+	return;
+}
+
 static void
-ev_io_shut(EV_P_ ev_io *w)
+ev_io_shut(EV_P_ ev_io w[static 1])
 {
 	int fd = w->fd;
 
 	ev_io_stop(EV_A_ w);
-	shutdown(fd, SHUT_RDWR);
-	close(fd);
+	shut_sock(w->fd);
 	w->fd = -1;
 	return;
 }
@@ -639,7 +646,11 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
 		QUO_DEBUG("FINI  %d\n", twsc->fd);
-		ev_io_shut(EV_A_ twsc);
+		/* close tws client's socket (gracefully) */
+		shut_sock(twsc->fd);
+		/* call that twsc watcher manually to free subq resources
+		 * mainloop isn't running any more */
+		twsc_cb(EV_A_ twsc, 0);
 		return;
 	}
 	/* otherwise proceed normally */
