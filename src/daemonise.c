@@ -38,7 +38,6 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 #include <unistd.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
 
@@ -46,16 +45,8 @@
 #include "logger.h"
 #include "nifty.h"
 
-static const char *glogfn;
-
-void
-rotate_logfn(void)
-{
-	return;
-}
-
 pid_t
-detach(const char *logfn)
+detach(void)
 {
 	int fd;
 	pid_t pid;
@@ -83,13 +74,6 @@ detach(const char *logfn)
 		(void)dup2(fd, STDIN_FILENO);
 		(void)dup2(fd, STDOUT_FILENO);
 		(void)dup2(fd, STDERR_FILENO);
-	}
-
-	if ((glogfn = logfn) != NULL) {
-		logerr = fopen(logfn, "w");
-		atexit(rotate_logfn);
-	} else {
-		logerr = fdopen(fd, "w");
 	}
 	return pid;
 }
