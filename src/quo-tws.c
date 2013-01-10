@@ -800,6 +800,16 @@ sighup_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 }
 
 static void
+sigusr1_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
+{
+/* for log rotation only */
+	QUO_DEBUG("USR1\n");
+	/* HUP the logfile */
+	rotate_logerr();
+	return;
+}
+
+static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -836,6 +846,7 @@ main(int argc, char *argv[])
 	/* ev goodies */
 	ev_signal sigint_watcher[1];
 	ev_signal sighup_watcher[1];
+	ev_signal sigusr1_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
 	ev_io ctrl[1];
@@ -897,6 +908,8 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sigterm_watcher);
 	ev_signal_init(sighup_watcher, sighup_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
+	ev_signal_init(sigusr1_watcher, sigusr1_cb, SIGUSR1);
+	ev_signal_start(EV_A_ sigusr1_watcher);
 
 	/* attach a multicast listener
 	 * we add this quite late so that it's unlikely that a plethora of
