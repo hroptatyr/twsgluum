@@ -789,6 +789,15 @@ beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
 }
 
 static void
+sighup_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
+{
+	QUO_DEBUG("HUP!\n");
+	/* just act as though we're going down */
+	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
+	return;
+}
+
+static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -880,7 +889,7 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sigint_watcher);
 	ev_signal_init(sigterm_watcher, sigall_cb, SIGTERM);
 	ev_signal_start(EV_A_ sigterm_watcher);
-	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
+	ev_signal_init(sighup_watcher, sighup_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* attach a multicast listener
