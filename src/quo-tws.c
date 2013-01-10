@@ -552,8 +552,6 @@ shut_sock(int fd)
 static void
 ev_io_shut(EV_P_ ev_io w[static 1])
 {
-	int fd = w->fd;
-
 	ev_io_stop(EV_A_ w);
 	shut_sock(w->fd);
 	w->fd = -1;
