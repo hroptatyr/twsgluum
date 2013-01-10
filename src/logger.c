@@ -52,6 +52,11 @@ static int
 __open_logerr(const char logfn[static 1])
 {
 	if (UNLIKELY((logerr = fopen(logfn, "a")) == NULL)) {
+		int errno_sv = errno;
+
+		/* backup plan */
+		logerr = fopen("/dev/null", "w");
+		errno = errno_sv;
 		return -1;
 	}
 	return 0;
@@ -71,21 +76,14 @@ __close_logerr(void)
 int
 open_logerr(const char *logfn)
 {
-	int errno_sv = 0;
 	int res = 0;
 
-	/* just to go in with a clean slate */
-	errno = 0;
 	if ((glogfn = logfn) == NULL ||
 	    (res = __open_logerr(logfn)) < 0) {
-		errno_sv = errno;
-		/* just to have a logerr object *
-		 * don't bother checking its result, i'd rather crash */
-		logerr = fopen("/dev/null", "w");
+		;
 	} else {
 		atexit(__close_logerr);
 	}
-	errno = errno_sv;
 	return res;
 }
 
@@ -97,7 +95,7 @@ rotate_logerr(void)
 	}
 	/* otherwise close and open again */
 	__close_logerr();
-	__open_logerr(glogfn);
+	(void)__open_logerr(glogfn);
 	return;
 }
 
