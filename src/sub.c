@@ -93,7 +93,7 @@ check_q(subq_t sq)
 }
 
 static sub_qqq_t
-pop_q(subq_t sq)
+make_qqq(subq_t sq)
 {
 	sub_qqq_t res;
 
@@ -146,7 +146,7 @@ void
 subq_add(subq_t sq, struct sub_s s)
 {
 	/* get us a free item */
-	sub_qqq_t si = pop_q(sq);
+	sub_qqq_t si = make_qqq(sq);
 
 	/* just copy the whole shebang */
 	si->s = s;
