@@ -113,6 +113,19 @@ make_qqq(subq_t sq)
 	return res;
 }
 
+static void
+free_qqq(subq_t sq, sub_qqq_t s)
+{
+	gq_push_tail(sq->q->free, (gq_item_t)s);
+	return;
+}
+
+static sub_qqq_t
+pop_qqq(subq_t sq)
+{
+	return (sub_qqq_t)gq_pop_head(sq->sbuf);
+}
+
 static sub_qqq_t
 find_cell(gq_ll_t lst, uint32_t idx)
 {
@@ -165,6 +178,17 @@ subq_find_by_idx(subq_t sq, uint32_t idx)
 		return &sp->s;
 	}
 	return NULL;
+}
+
+void
+subq_flush_cb(subq_t sq, subq_cb_f cb, void *clo)
+{
+	for (sub_qqq_t si; (si = pop_qqq(sq)) != NULL; free_qqq(sq, si)) {
+		SUB_DEBUG("POP!  SQ  %p\n", si);
+		/* call the callback */
+		cb(si->s, clo);
+	}
+	return;
 }
 
 /* sub.c ends here */
