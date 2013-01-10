@@ -9,6 +9,10 @@ option "daemonise" d
 	"Detach from tty and runs as daemon"
 	optional
 
+option "log" -
+	"Log events to FILE."
+	string typestr="FILE" optional
+
 section "unserding options"
 option "port" p
 	"Multicast control channel port"
