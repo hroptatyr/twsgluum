@@ -139,6 +139,19 @@ find_cell(gq_ll_t lst, uint32_t idx)
 	return NULL;
 }
 
+static sub_qqq_t
+find_nick(gq_ll_t lst, const char *nick)
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (LIKELY(sp->s.nick != NULL) && !strcmp(sp->s.nick, nick)) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
 
 /* public funs */
 subq_t
@@ -170,11 +183,22 @@ subq_add(subq_t sq, struct sub_s s)
 }
 
 sub_t
-subq_find_by_idx(subq_t sq, uint32_t idx)
+subq_find_idx(subq_t sq, uint32_t idx)
 {
 	sub_qqq_t sp;
 
 	if (LIKELY((sp = find_cell(sq->sbuf, idx)) != NULL)) {
+		return &sp->s;
+	}
+	return NULL;
+}
+
+sub_t
+subq_find_nick(subq_t sq, const char *nick)
+{
+	sub_qqq_t sp;
+
+	if (LIKELY((sp = find_nick(sq->sbuf, nick)) != NULL)) {
 		return &sp->s;
 	}
 	return NULL;
