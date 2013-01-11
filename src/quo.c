@@ -209,7 +209,7 @@ quoq_add(quoq_t qq, struct quo_s q)
 	quo_qqq_t qi = make_qqq(qq);
 	struct key_s k = SILLY_CAST(struct key_s, q);
 
-	if (!q30_price_typ_p(k)) {
+	if (q30_price_typ_p(k)) {
 		/* price cell, always gets pushed */
 		qi->q = q;
 		/* make sure the qty slot is naught */
