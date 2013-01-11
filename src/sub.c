@@ -67,6 +67,7 @@ struct sub_qqq_s {
 struct subq_s {
 	struct gq_s q[1];
 	struct gq_ll_s sbuf[1];
+	struct gq_ll_s norm[1];
 };
 
 
@@ -171,8 +172,22 @@ free_subq(subq_t q)
 void
 subq_add(subq_t sq, struct sub_s s)
 {
+	static uint32_t uidx;
 	/* get us a free item */
 	sub_qqq_t si = make_qqq(sq);
+	sub_qqq_t ni;
+
+	/* try and find the cell with s.nick on the queue */
+	if (UNLIKELY(s.nick == NULL)) {
+		ni = NULL;
+	} else if ((ni = find_nick(sq->norm, s.nick)) != NULL) {
+		s.uidx = ni->s.uidx;
+	} else {
+		ni = make_qqq(sq);
+		ni->s.uidx = s.uidx = ++uidx;
+		ni->s.nick = s.nick;
+		gq_push_tail(sq->norm, (gq_item_t)ni);
+	}
 
 	/* just copy the whole shebang */
 	si->s = s;
@@ -214,6 +229,7 @@ subq_flush_cb(subq_t sq, subq_cb_f cb, void *clo)
 		/* call the callback */
 		cb(si->s, clo);
 	}
+	/* leave the norm queue untouched */
 	return;
 }
 
