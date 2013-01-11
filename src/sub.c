@@ -140,7 +140,7 @@ find_cell(gq_ll_t lst, uint32_t idx)
 }
 
 static sub_qqq_t
-find_nick(gq_ll_t lst, const char *nick)
+find_nick(gq_ll_t lst, const char nick[1])
 {
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		sub_qqq_t sp = (void*)ip;
@@ -198,7 +198,9 @@ subq_find_nick(subq_t sq, const char *nick)
 {
 	sub_qqq_t sp;
 
-	if (LIKELY((sp = find_nick(sq->sbuf, nick)) != NULL)) {
+	if (UNLIKELY(nick == NULL)) {
+		;
+	} else if (LIKELY((sp = find_nick(sq->sbuf, nick)) != NULL)) {
 		return &sp->s;
 	}
 	return NULL;
