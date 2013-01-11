@@ -465,16 +465,14 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			break;
 		case 1:		/* price */
 		case 9:		/* price */
-			q.typ = (quo_typ_t)clo.tt;
+		case 8:		/* size */
+			q.typ = (quo_typ_t)(clo.tt - 1);
 			break;
 		case 2:		/* price */
 		case 4:		/* price */
 		case 3:		/* size */
 		case 5:		/* size */
-			q.typ = (quo_typ_t)(clo.tt + 1);
-			break;
-		case 8:		/* size */
-			q.typ = QUO_TYP_VOL;
+			q.typ = (quo_typ_t)clo.tt;
 			break;
 		default:
 			goto fucked;
