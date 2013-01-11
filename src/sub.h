@@ -70,6 +70,11 @@ extern void subq_add(subq_t sq, struct sub_s s);
 /**
  * Return the sub_t object on SQ that has idx IDX. */
 extern sub_t subq_find_idx(subq_t sq, uint32_t idx);
+
+/**
+ * Return the sub_t object on SQ that has idx IDX. */
+extern sub_t subq_find_uidx(subq_t sq, uint32_t idx);
+
 /**
  * Return the sub_t object on SQ that has nick NICK. */
 extern sub_t subq_find_nick(subq_t sq, const char *nick);
