@@ -48,13 +48,9 @@ typedef struct quo_s *quo_t;
 /** a queue of quote objects */
 typedef struct quoq_s *quoq_t;
 
-#if !defined INCLUDED_sl1t_h_
-/* just to declare the flush_cb routine below */
-typedef const struct sl1t_s *const_sl1t_t;
-#endif	/* INCLUDED_sl1t_h_ */
+typedef uint32_t qv_t;
 
 typedef enum {
-	QUO_TYP_UNK,
 	QUO_TYP_BID,
 	QUO_TYP_BSZ,
 	QUO_TYP_ASK,
@@ -69,8 +65,15 @@ typedef enum {
 
 struct quo_s {
 	uint32_t idx;
-	quo_typ_t typ;
-	double val;
+	union {
+		struct {
+			uint32_t subtyp:1;
+			uint32_t suptyp:31;
+		};
+		quo_typ_t typ;
+	};
+	qv_t p;
+	qv_t q;
 };
 
 /* quoq callback aspects */
@@ -84,7 +87,7 @@ struct quoq_cb_asp_s {
 #endif	/* ASPECT_QUO_AGE */
 };
 
-typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, const_sl1t_t, void*);
+typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, struct quo_s, void*);
 
 
 /* ctors/dtors */
@@ -94,10 +97,6 @@ extern void free_quoq(quoq_t q);
 /**
  * Add Q to the quote queue QQ. */
 extern void quoq_add(quoq_t qq, struct quo_s q);
-
-/**
- * Flush ticks on the queue QQ. */
-extern void quoq_flush(quoq_t qq);
 
 /**
  * Convert ticks on the queue QQ to uterus sl1t. */

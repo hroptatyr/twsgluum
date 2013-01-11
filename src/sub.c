@@ -67,6 +67,7 @@ struct sub_qqq_s {
 struct subq_s {
 	struct gq_s q[1];
 	struct gq_ll_s sbuf[1];
+	struct gq_ll_s norm[1];
 };
 
 
@@ -139,6 +140,32 @@ find_cell(gq_ll_t lst, uint32_t idx)
 	return NULL;
 }
 
+static sub_qqq_t
+find_uidx(gq_ll_t lst, uint32_t uidx)
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (sp->s.idx == uidx) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
+static sub_qqq_t
+find_nick(gq_ll_t lst, const char nick[1])
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (LIKELY(sp->s.nick != NULL) && !strcmp(sp->s.nick, nick)) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
 
 /* public funs */
 subq_t
@@ -151,6 +178,10 @@ make_subq(void)
 void
 free_subq(subq_t q)
 {
+	/* free items on the norm queue */
+	for (gq_item_t ip = q->norm->i1st; ip; ip = ip->next) {
+		free(((sub_qqq_t)ip)->s.nick);
+	}
 	fini_gq(q->q);
 	return;
 }
@@ -158,8 +189,22 @@ free_subq(subq_t q)
 void
 subq_add(subq_t sq, struct sub_s s)
 {
+	static uint32_t uidx;
 	/* get us a free item */
 	sub_qqq_t si = make_qqq(sq);
+	sub_qqq_t ni;
+
+	/* try and find the cell with s.nick on the queue */
+	if (UNLIKELY(s.nick == NULL)) {
+		ni = NULL;
+	} else if ((ni = find_nick(sq->norm, s.nick)) != NULL) {
+		s.uidx = ni->s.uidx;
+	} else {
+		ni = make_qqq(sq);
+		ni->s.uidx = s.uidx = ++uidx;
+		ni->s.nick = strdup(s.nick);
+		gq_push_tail(sq->norm, (gq_item_t)ni);
+	}
 
 	/* just copy the whole shebang */
 	si->s = s;
@@ -170,11 +215,35 @@ subq_add(subq_t sq, struct sub_s s)
 }
 
 sub_t
-subq_find_by_idx(subq_t sq, uint32_t idx)
+subq_find_idx(subq_t sq, uint32_t idx)
 {
 	sub_qqq_t sp;
 
 	if (LIKELY((sp = find_cell(sq->sbuf, idx)) != NULL)) {
+		return &sp->s;
+	}
+	return NULL;
+}
+
+sub_t
+subq_find_uidx(subq_t sq, uint32_t uidx)
+{
+	sub_qqq_t sp;
+
+	if (LIKELY((sp = find_uidx(sq->sbuf, uidx)) != NULL)) {
+		return &sp->s;
+	}
+	return NULL;
+}
+
+sub_t
+subq_find_nick(subq_t sq, const char *nick)
+{
+	sub_qqq_t sp;
+
+	if (UNLIKELY(nick == NULL)) {
+		;
+	} else if (LIKELY((sp = find_nick(sq->sbuf, nick)) != NULL)) {
 		return &sp->s;
 	}
 	return NULL;
@@ -188,6 +257,7 @@ subq_flush_cb(subq_t sq, subq_cb_f cb, void *clo)
 		/* call the callback */
 		cb(si->s, clo);
 	}
+	/* leave the norm queue untouched */
 	return;
 }
 

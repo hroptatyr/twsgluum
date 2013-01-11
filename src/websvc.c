@@ -103,7 +103,7 @@ websvc_secdef(char *restrict tgt, size_t tsz, subq_t sq, struct websvc_s sd)
 		return 0UL;
 	} else if (UNLIKELY((idx = sd.secdef.idx) == 0)) {
 		return 0UL;
-	} else if (UNLIKELY((sub = subq_find_by_idx(sq, idx)) == NULL)) {
+	} else if (UNLIKELY((sub = subq_find_uidx(sq, idx)) == NULL)) {
 		return 0UL;
 	} else if (UNLIKELY(sub->sdef == NULL)) {
 		return 0UL;
