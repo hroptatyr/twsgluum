@@ -93,15 +93,15 @@ struct quoq_s {
 
 /* the quotes array */
 static inline __attribute__((pure)) int
-q30_price_typ_p(struct key_s q)
+q30_price_typ_p(struct key_s k)
 {
-	return q.subtyp == 0U;
+	return k.subtyp == 0U;
 }
 
 static inline int
-matches_q30_p(quo_qqq_t cell, struct key_s q)
+matches_q30_p(quo_qqq_t cell, struct key_s k)
 {
-	return cell->q.idx == q.idx && cell->q.suptyp == q.suptyp;
+	return cell->q.idx == k.idx && cell->q.suptyp == k.suptyp;
 }
 
 
@@ -202,24 +202,26 @@ free_quoq(quoq_t q)
 	return;
 }
 
+#define SILLY_CAST(x, o)	*((x*)&(o))
+
 void
 quoq_add(quoq_t qq, struct quo_s q)
 {
-#define SILLY_CAST(x, o)	*((x*)&(o))
 	quo_qqq_t qi = make_qqq(qq);
 	struct key_s k = SILLY_CAST(struct key_s, q);
 
+	/* always clone upfront */
+	qi->q = q;
+
 	if (q30_price_typ_p(k)) {
-		/* price cell, always gets pushed */
-		qi->q = q;
-		/* make sure the qty slot is naught */
+		/* price cell, gets pushed always
+		 * make sure the qty slot is naught though */
 		qi->q.q = 0U;
 	} else {
 		/* qty cell, find the last price */
 		quo_qqq_t qp;
 
 		/* clone it all */
-		qi->q = q;
 		/* try the current queue first */
 		if (LIKELY((qp = find_p_cell(qq->sbuf, k)) != NULL)) {
 			/* just add the bugger if q slot is unset */
@@ -234,7 +236,7 @@ quoq_add(quoq_t qq, struct quo_s q)
 		/* try the price queue next */
 		if ((qp = find_p_cell(qq->pbuf, k)) != NULL) {
 		clone:
-			/* clone the thing right away */
+			/* get the price off of the previous cell */
 			qi->q.p = qp->q.p;
 		} else {
 			/* entirely new to us, make sure the price slot is 0 */
