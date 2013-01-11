@@ -306,7 +306,7 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 static int
 brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
 {
-	const char *sym = tws_cont_nick(sub->sdef);
+	const char *sym = sub->nick;
 	size_t len, tot;
 
 	tot = (len = strlen(sym)) + brag_uri_offset + 5;
@@ -323,41 +323,44 @@ brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
 		ser->msgoff = 0;
 	}
 	/* add this guy */
-	udpc_seria_add_ui16(ser, sub->idx);
+	udpc_seria_add_ui16(ser, sub->uidx);
 	udpc_seria_add_str(ser, sym, len);
 	/* put stuff in our uri */
 	len = snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
-		"%u", sub->idx);
+		"%u", sub->uidx);
 	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
 	return 0;
 }
 
 static void
-flush_cb(struct quoq_cb_asp_s asp, const_sl1t_t l1t, struct flush_clo_s *clo)
+flush_cb(struct quoq_cb_asp_s asp, sl1t_t l1t, struct flush_clo_s *clo)
 {
+	uint16_t idx = sl1t_tblidx(l1t);
+	uint32_t now = sl1t_stmp_sec(l1t);
+	/* try and find the sdef for this quote */
+	sub_t sub = subq_find_idx(clo->ctx->sq, idx);
+
 	assert(asp.type == QUOQ_CB_FLUSH);
 
-	if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
+	if (UNLIKELY(sub == NULL)) {
+		/* huh? :O */
+		;
+	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 0);
 		ud_chan_send_ser_all(clo->ctx, clo->ser + 1);
 		udpc_seria_rewind(clo->ser + 0);
 		udpc_seria_rewind(clo->ser + 1);
 	}
 
+	/* fiddle with the index, I know we're not meant to but who cares */
+	sl1t_set_tblidx(l1t, sub->uidx);
 	udpc_seria_add_sl1t(clo->ser + 1, l1t);
 
-	/* try and find the sdef for this quote */
-	{
-		uint16_t idx = sl1t_tblidx(l1t);
-		uint32_t now = sl1t_stmp_sec(l1t);
-		sub_t sub = subq_find_idx(clo->ctx->sq, idx);
-
-		if (LIKELY(sub != NULL && now - sub->last_dsm >= BRAG_INTV)) {
-			brag(clo->ctx, clo->ser + 0, sub);
-			/* update sub */
-			sub->last_dsm = now;
-		}
+	if (UNLIKELY(now - sub->last_dsm >= BRAG_INTV)) {
+		brag(clo->ctx, clo->ser + 0, sub);
+		/* update sub */
+		sub->last_dsm = now;
 	}
 	return;
 }
@@ -459,9 +462,12 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
 			struct sub_s s;
+			tws_sdef_t sdef = tws_dup_sdef(clo.data);
+			const char *nick = tws_sdef_nick(sdef);
 
 			s.idx = tws_sub_quo(tws, clo.data);
 			s.sdef = tws_dup_sdef(clo.data);
+			s.nick = strdup(nick);
 			subq_add(((ctx_t)tws)->sq, s);
 		}
 		break;
@@ -521,6 +527,7 @@ static void
 sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
 {
 	tws_free_sdef(s.sdef);
+	free(s.nick);
 	return;
 }
 
