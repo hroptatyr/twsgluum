@@ -168,6 +168,7 @@ static void
 bang_qqq(quoq_t qq, quo_qqq_t q)
 {
 /* put q to price-quote list of qq */
+	q->q.subtyp = 0U;
 	gq_push_tail(qq->pbuf, (gq_item_t)q);
 	return;
 }
