@@ -178,6 +178,10 @@ make_subq(void)
 void
 free_subq(subq_t q)
 {
+	/* free items on the norm queue */
+	for (gq_item_t ip = q->norm->i1st; ip; ip = ip->next) {
+		free(((sub_qqq_t)ip)->s.nick);
+	}
 	fini_gq(q->q);
 	return;
 }
@@ -198,7 +202,7 @@ subq_add(subq_t sq, struct sub_s s)
 	} else {
 		ni = make_qqq(sq);
 		ni->s.uidx = s.uidx = ++uidx;
-		ni->s.nick = s.nick;
+		ni->s.nick = strdup(s.nick);
 		gq_push_tail(sq->norm, (gq_item_t)ni);
 	}
 
