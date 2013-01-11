@@ -61,8 +61,10 @@
 #include <unserding/protocore.h>
 #if defined HAVE_UTERUS_UTERUS_H
 # include <uterus/uterus.h>
+# include <uterus/m30.h>
 #elif defined HAVE_UTERUS_H
 # include <uterus.h>
+# include <m30.h>
 #else
 # error uterus headers are mandatory
 #endif	/* HAVE_UTERUS_UTERUS_H || HAVE_UTERUS_H */
@@ -265,11 +267,6 @@ udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
 	return;
 }
 
-struct flush_clo_s {
-	ctx_t ctx;
-	struct udpc_seria_s ser[2];
-};
-
 /* looks like dccp://host:port/secdef?idx=00000 */
 static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
 /* offset into brag_uris idx= field */
@@ -333,13 +330,27 @@ brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
 	return 0;
 }
 
-static void
-flush_cb(struct quoq_cb_asp_s asp, sl1t_t l1t, struct flush_clo_s *clo)
+static inline unsigned int
+q30_sl1t_typ(quo_typ_t qtyp)
 {
-	uint16_t idx = sl1t_tblidx(l1t);
-	uint32_t now = sl1t_stmp_sec(l1t);
+/* q's typ slot was designed to coincide with ute's sl1t types */
+	return qtyp / 2 + SL1T_TTF_BID;
+}
+
+struct flush_clo_s {
+	ctx_t ctx;
+	struct udpc_seria_s ser[2];
+	struct sl1t_s l1t[1];
+};
+
+static void
+qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
+{
+	ctx_t ctx = clo->ctx;
+	sl1t_t l1t = clo->l1t;
 	/* try and find the sdef for this quote */
-	sub_t sub = subq_find_idx(clo->ctx->sq, idx);
+	uint32_t idx = q.idx;
+	sub_t sub = subq_find_idx(ctx->sq, idx);
 
 	assert(asp.type == QUOQ_CB_FLUSH);
 
@@ -347,20 +358,29 @@ flush_cb(struct quoq_cb_asp_s asp, sl1t_t l1t, struct flush_clo_s *clo)
 		/* huh? :O */
 		;
 	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
-		ud_chan_send_ser_all(clo->ctx, clo->ser + 0);
-		ud_chan_send_ser_all(clo->ctx, clo->ser + 1);
+		ud_chan_send_ser_all(ctx, clo->ser + 0);
+		ud_chan_send_ser_all(ctx, clo->ser + 1);
 		udpc_seria_rewind(clo->ser + 0);
 		udpc_seria_rewind(clo->ser + 1);
 	}
 
-	/* fiddle with the index, I know we're not meant to but who cares */
+	/* fill in the rest of the l1t info */
 	sl1t_set_tblidx(l1t, sub->uidx);
+	sl1t_set_ttf(l1t, q30_sl1t_typ(q.typ));
+	l1t->pri = q.p;
+	l1t->qty = q.q;
+	/* stuff him up ser+1's sleeve */
 	udpc_seria_add_sl1t(clo->ser + 1, l1t);
 
-	if (UNLIKELY(now - sub->last_dsm >= BRAG_INTV)) {
-		brag(clo->ctx, clo->ser + 0, sub);
-		/* update sub */
-		sub->last_dsm = now;
+	{
+	/* check if it's time to brag about this thing again */
+		uint32_t now = sl1t_stmp_sec(l1t);
+
+		if (UNLIKELY(now - sub->last_dsm >= BRAG_INTV)) {
+			brag(clo->ctx, clo->ser + 0, sub);
+			/* update sub */
+			sub->last_dsm = now;
+		}
 	}
 	return;
 }
@@ -384,8 +404,17 @@ quoq_flush_maybe(ctx_t ctx)
 	udpc_seria_init(
 		clo.ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
 
+	/* populate l1t somewhat */
+	{
+		struct timeval now[1];
+
+		gettimeofday(now, NULL);
+		sl1t_set_stmp_sec(clo.l1t, now->tv_sec);
+		sl1t_set_stmp_msec(clo.l1t, now->tv_usec / 1000);
+	}
+
 	/* get the packet ctor'd */
-	quoq_flush_cb(ctx->qq, (void(*)())flush_cb, &clo);
+	quoq_flush_cb(ctx->qq, (void(*)())qq_flush_cb, &clo);
 
 	/* just drain the whole shebang */
 	ud_chan_send_ser_all(ctx, clo.ser + 0);
@@ -427,6 +456,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	case TWS_CB_PRE_PRICE:
 	case TWS_CB_PRE_SIZE: {
 		struct quo_s q;
+		m30_t v;
 
 		switch (clo.tt) {
 			/* hardcoded non-sense here!!! */
@@ -447,11 +477,15 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			q.typ = QUO_TYP_VOL;
 			break;
 		default:
-			q.typ = QUO_TYP_UNK;
 			goto fucked;
 		}
-		q.idx = (uint16_t)clo.oid;
-		q.val = clo.val;
+		v = ffff_m30_get_d(clo.val);
+		q.idx = clo.oid;
+		if (q.subtyp == 0U/*means price*/) {
+			q.p = v.u;
+		} else {
+			q.q = v.u;
+		}
 		QUO_DEBUG("TICK  what %u  oid %u  tt %u  data %p\n",
 			what, clo.oid, clo.tt, clo.data);
 		quoq_add(((ctx_t)tws)->qq, q);
