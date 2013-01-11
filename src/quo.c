@@ -40,15 +40,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/time.h>
-#if defined HAVE_UTERUS_UTERUS_H
-# include <uterus/uterus.h>
-# include <uterus/m30.h>
-#elif defined HAVE_UTERUS_H
-# include <uterus.h>
-# include <m30.h>
-#else
-# error uterus headers are mandatory
-#endif	/* HAVE_UTERUS_UTERUS_H || HAVE_UTERUS_H */
 
 #include "quo.h"
 #include "nifty.h"
@@ -70,25 +61,25 @@ typedef struct quo_qqq_s *quo_qqq_t;
 typedef struct q30_s q30_t;
 
 /* indexing into the quo_sub_s->quos */
-struct q30_s {
+struct key_s {
+	uint32_t idx;
 	union {
 		struct {
 			uint32_t subtyp:1;
 			uint32_t suptyp:31;
 		};
-		uint32_t typ:32;
+		quo_typ_t typ;
 	};
-	uint32_t idx;
 };
 
 /* the quote-queue quote, i.e. an item of the quote queue */
 struct quo_qqq_s {
 	struct gq_item_s i;
 
-	q30_t t;
-	m30_t p;
-	m30_t q;
+	struct quo_s q;
+#if defined ASPECT_QUO_AGE
 	uint32_t last_dsm;
+#endif	/* ASPECT_QUO_AGE */
 };
 
 struct quoq_s {
@@ -101,70 +92,16 @@ struct quoq_s {
 
 
 /* the quotes array */
-static inline q30_t
-make_q30(uint32_t iidx, quo_typ_t t)
-{
-#if defined HAVE_ANON_STRUCTS_INIT
-	if (LIKELY(t >= QUO_TYP_BID && t <= QUO_TYP_ASZ)) {
-		return __extension__(q30_t){.typ = t - 1, .idx = iidx};
-	}
-	return __extension__(q30_t){0};
-#else  /* !HAVE_ANON_STRUCTS_INIT */
-	struct q30_s res = {0};
-
-	if (LIKELY(t >= QUO_TYP_BID && t <= QUO_TYP_ASZ)) {
-		res.typ = t - 1;
-		res.idx = iidx;
-	}
-	return res;
-#endif	/* HAVE_ANON_STRUCTS_INIT */
-}
-
 static inline __attribute__((pure)) int
-q30_price_typ_p(q30_t q)
+q30_price_typ_p(struct key_s q)
 {
 	return q.subtyp == 0U;
 }
 
-static inline unsigned int
-q30_sl1t_typ(q30_t q)
-{
-/* q's typ slot was designed to coincide with ute's sl1t types */
-	return q.typ / 2 + SL1T_TTF_BID;
-}
-
-static unsigned int
-q30_sl1t_idx(q30_t q)
-{
-	return q.idx;
-}
-
 static inline int
-matches_q30_p(quo_qqq_t cell, q30_t q)
+matches_q30_p(quo_qqq_t cell, struct key_s q)
 {
-	return cell->t.idx == q.idx && cell->t.suptyp == q.suptyp;
-}
-
-
-/* uterus glue */
-static int
-fill_sl1t(struct sl1t_s tgt[static 1], quo_qqq_t qi)
-{
-	unsigned int tix;
-	unsigned int ttf;
-
-	if (UNLIKELY((tix = q30_sl1t_idx(qi->t)) == 0U)) {
-		return -1;
-	} else if (UNLIKELY((ttf = q30_sl1t_typ(qi->t)) == SCOM_TTF_UNK)) {
-		return -1;
-	}
-
-	sl1t_set_ttf(tgt, (uint16_t)ttf);
-	sl1t_set_tblidx(tgt, (uint16_t)tix);
-
-	tgt->pri = qi->p.u;
-	tgt->qty = qi->q.u;
-	return 0;
+	return cell->q.idx == q.idx && cell->q.suptyp == q.suptyp;
 }
 
 
@@ -236,13 +173,12 @@ bang_qqq(quoq_t qq, quo_qqq_t q)
 }
 
 static quo_qqq_t
-find_p_cell(gq_ll_t lst, q30_t tgt)
+find_p_cell(gq_ll_t lst, struct key_s k)
 {
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		quo_qqq_t qp = (void*)ip;
 
-		if (matches_q30_p(qp, tgt) &&
-		    q30_price_typ_p(qp->t)) {
+		if (matches_q30_p(qp, k) && q30_price_typ_p(k)) {
 			/* yay */
 			return qp;
 		}
@@ -269,29 +205,26 @@ free_quoq(quoq_t q)
 void
 quoq_add(quoq_t qq, struct quo_s q)
 {
-	quo_qqq_t qi;
-	q30_t tgt;
-	m30_t val;
+#define SILLY_CAST(x, o)	*((x*)&(o))
+	quo_qqq_t qi = make_qqq(qq);
+	struct key_s k = SILLY_CAST(struct key_s, q);
 
-	if (!(tgt = make_q30(q.idx, q.typ)).idx) {
-		return;
-	}
-
-	/* just to relieve inlining pressure */
-	val = ffff_m30_get_d(q.val);
-	/* and some more */
-	qi = make_qqq(qq);
-
-	if (!q30_price_typ_p(tgt)) {
-		/* find the last price */
+	if (!q30_price_typ_p(k)) {
+		/* price cell, always gets pushed */
+		qi->q = q;
+		/* make sure the qty slot is naught */
+		qi->q.q = 0U;
+	} else {
+		/* qty cell, find the last price */
 		quo_qqq_t qp;
-		m30_t pv;
 
+		/* clone it all */
+		qi->q = q;
 		/* try the current queue first */
-		if (LIKELY((qp = find_p_cell(qq->sbuf, tgt)) != NULL)) {
+		if (LIKELY((qp = find_p_cell(qq->sbuf, k)) != NULL)) {
 			/* just add the bugger if q slot is unset */
-			if (qp->q.u == 0U) {
-				qp->q = val;
+			if (qp->q.q == 0U) {
+				qp->q.q = q.q;
 				free_qqq(qq, qi);
 				return;
 			}
@@ -299,80 +232,49 @@ quoq_add(quoq_t qq, struct quo_s q)
 			goto clone;
 		}
 		/* try the price queue next */
-		if ((qp = find_p_cell(qq->pbuf, tgt)) != NULL) {
+		if ((qp = find_p_cell(qq->pbuf, k)) != NULL) {
 		clone:
 			/* clone the thing right away */
-			tgt = qp->t;
-			pv = qp->p;
+			qi->q.p = qp->q.p;
 		} else {
-			/* entirely new to us */
-			pv.u = 0U;
+			/* entirely new to us, make sure the price slot is 0 */
+			qi->q.p = 0U;
 		}
-		qi->t = tgt;
-		qi->p = pv;
-		qi->q = val;
-	} else {
-		qi->t = tgt;
-		qi->p = val;
 	}
 	gq_push_tail(qq->sbuf, (gq_item_t)qi);
 	return;
 }
 
 void
-quoq_flush(quoq_t qq)
-{
-	quo_qqq_t qi;
-
-	while ((qi = pop_qqq(qq)) != NULL) {
-		quo_qqq_t qp;
-
-		QUO_DEBUG("FLSH  %u %u %i %i\n",
-			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
-
-		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
-			qp->p = qi->p;
-			qp->q = qi->q;
-			free_qqq(qq, qi);
-		} else {
-			bang_qqq(qq, qi);
-		}
-	}
-	return;
-}
-
-void
 quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 {
+#if defined ASPECT_QUO_AGE
 	struct timeval now[1];
-	struct sl1t_s l1t[1];
+#endif	/* ASPECT_QUO_AGE */
 	struct quoq_cb_asp_s asp = {
 		.type = QUOQ_CB_FLUSH,
 	};
 	quo_qqq_t qi;
 
+#if defined ASPECT_QUO_AGE
 	/* time */
 	gettimeofday(now, NULL);
-
-	/* populate l1t somewhat */
-	sl1t_set_stmp_sec(l1t, now->tv_sec);
-	sl1t_set_stmp_msec(l1t, now->tv_usec / 1000);
+#endif	/* ASPECT_QUO_AGE */
 
 	while ((qi = pop_qqq(qq)) != NULL) {
 		quo_qqq_t qp;
+		struct key_s k = SILLY_CAST(struct key_s, qi->q);
 
-		QUO_DEBUG("FLSH  %u %u %i %i\n",
-			qi->t.idx, qi->t.typ, (int)qi->p.mant, (int)qi->q.mant);
+		QUO_DEBUG("FLSH  %u %u %u %u\n",
+			qi->q.idx, qi->q.typ, qi->q.p, qi->q.q);
 
-		if (fill_sl1t(l1t, qi) < 0) {
-			goto free;
-		}
-
+#if defined ASPECT_QUO_AGE
 		/* keep a note about dissemination */
 		qi->last_dsm = now->tv_sec;
+#endif	/* ASPECT_QUO_AGE */
 
 		/* find the cell in the pbuf */
-		if ((qp = find_p_cell(qq->pbuf, qi->t)) != NULL) {
+		if ((qp = find_p_cell(qq->pbuf, k)) != NULL) {
 #if defined ASPECT_QUO_AGE
 			asp.age = qi->last_dsm - qp->last_dsm;
 		} else {
@@ -381,14 +283,14 @@ quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 		}
 
 		/* call the callback */
-		cb(asp, l1t, clo);
+		cb(asp, qi->q, clo);
 
 		/* finalise the cells */
 		if (qp != NULL) {
-			qp->p = qi->p;
 			qp->q = qi->q;
+#if defined ASPECT_QUO_AGE
 			qp->last_dsm = qi->last_dsm;
-		free:
+#endif	/* ASPECT_QUO_AGE */
 			free_qqq(qq, qi);
 		} else {
 			bang_qqq(qq, qi);
