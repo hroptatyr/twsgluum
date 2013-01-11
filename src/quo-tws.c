@@ -351,7 +351,7 @@ flush_cb(struct quoq_cb_asp_s asp, const_sl1t_t l1t, struct flush_clo_s *clo)
 	{
 		uint16_t idx = sl1t_tblidx(l1t);
 		uint32_t now = sl1t_stmp_sec(l1t);
-		sub_t sub = subq_find_by_idx(clo->ctx->sq, idx);
+		sub_t sub = subq_find_idx(clo->ctx->sq, idx);
 
 		if (LIKELY(sub != NULL && now - sub->last_dsm >= BRAG_INTV)) {
 			brag(clo->ctx, clo->ser + 0, sub);
