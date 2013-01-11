@@ -178,7 +178,7 @@ find_p_cell(gq_ll_t lst, struct key_s k)
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		quo_qqq_t qp = (void*)ip;
 
-		if (matches_q30_p(qp, k) && q30_price_typ_p(k)) {
+		if (matches_q30_p(qp, k)) {
 			/* yay */
 			return qp;
 		}
