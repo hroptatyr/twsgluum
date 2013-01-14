@@ -48,10 +48,11 @@ dnl   def: sxe_cv_feat_expat yes|no
 
 			if test "${ac_cv_header_expat_h}" = "yes"; then
 				## assume expat is out there somewhere
-				have_expat="yes"
+				sxe_cv_feat_expat="yes"
 				expat_LIBS="-lexpat"
 				expat_CFLAGS=""
 			else
+				$2
 				AC_MSG_ERROR([expat headers not found])
 			fi
 		])
