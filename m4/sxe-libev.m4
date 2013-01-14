@@ -42,7 +42,20 @@ dnl   def: sxe_cv_feat_libev yes|no
 		PKG_CHECK_MODULES_HEADERS([libev], [libev >= 4.0], [ev.h], [
 			sxe_cv_feat_libev="yes"
 			$1
-		], $2)
+		], [
+			## grrr, for all the distros without an libev.pc file
+			AC_CHECK_HEADERS([ev.h])
+
+			if test "${ac_cv_header_ev_h}" = "yes"; then
+				## assume expat is out there somewhere
+				sxe_cv_feat_libev="yes"
+				libev_LIBS="-lev"
+				libev_CFLAGS=""
+			else
+				$2
+				AC_MSG_ERROR([lib headers not found])
+			fi
+		])
 	])
 
 ])dnl SXE_CHECK_LIBEV
