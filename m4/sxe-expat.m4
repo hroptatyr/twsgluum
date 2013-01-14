@@ -52,6 +52,7 @@ dnl   def: sxe_cv_feat_expat yes|no
 				expat_LIBS="-lexpat"
 				expat_CFLAGS=""
 			else
+				$2
 				AC_MSG_ERROR([expat headers not found])
 			fi
 		])
