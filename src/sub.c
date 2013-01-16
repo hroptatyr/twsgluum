@@ -106,6 +106,7 @@ make_qqq(subq_t sq)
 		SUB_DEBUG("RESZ  SQ  ->%zu\n", nitems + 64);
 		df = init_gq(sq->q, sizeof(*res), nitems + 64);
 		gq_rbld_ll(sq->sbuf, df);
+		gq_rbld_ll(sq->norm, df);
 		check_q(sq);
 	}
 	/* get us a new client and populate the object */
