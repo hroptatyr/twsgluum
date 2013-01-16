@@ -693,6 +693,17 @@ tws_req_quo(tws_t tws, tws_oid_t oid, tws_const_sdef_t sdef)
 	return __sock_ok_p(tws);
 }
 
+static int
+tws_req_quo_cont(tws_t tws, tws_oid_t oid, tws_const_cont_t cont)
+{
+	const IB::Contract *c = (const IB::Contract*)cont;
+	IB::IBString generics = std::string("");
+	bool snapp = false;
+
+	TWS_PRIV_CLI(tws)->reqMktData(oid, *c, generics, snapp);
+	return __sock_ok_p(tws);
+}
+
 
 // public funs
 int
@@ -794,6 +805,23 @@ tws_sub_quo(tws_t tws, tws_const_sdef_t sdef)
 	/* we'll request idx + next_oid */
 	res = TWS_PRIV_WRP(tws)->next_oid++;
 	if (tws_req_quo(tws, res, sdef) < 0) {
+		return 0;
+	}
+	return res;
+}
+
+tws_oid_t
+tws_sub_quo_cont(tws_t tws, tws_const_cont_t cont)
+{
+	tws_oid_t res;
+
+	if (UNLIKELY(!tws_ready_p(tws))) {
+		return 0;
+	}
+
+	/* we'll request idx + next_oid */
+	res = TWS_PRIV_WRP(tws)->next_oid++;
+	if (tws_req_quo_cont(tws, res, cont) < 0) {
 		return 0;
 	}
 	return res;

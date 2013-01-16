@@ -519,12 +519,20 @@ static int
 __sub_sdef(tws_cont_t ins, void *clo)
 {
 /* subscribe to INS
- * we only request security definitions here and upon successful
- * definition responses we subscribe
- * those responses will show up in pre_cb() though */
+ * we actually subscribe instruments twice, once here using the
+ * instrument specified in INS and then we request security definitions
+ * and upon a successful definition response we subscribe
+ * those responses again */
 	tws_t tws = clo;
+	struct sub_s s;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
+	s.idx = tws_sub_quo_cont(tws, ins);
+	s.sdef = NULL;
+	s.nick = strdup(tws_cont_nick(ins));
+	subq_add(((ctx_t)tws)->sq, s);
+
+	/* also request the real sdef data */
 	if (tws_req_sdef(tws, ins) < 0) {
 		logger("cannot acquire secdefs of %p", ins);
 	}
