@@ -119,7 +119,7 @@ init_gq(gq_t q, size_t mbsz, size_t at_least)
 	/* get some new items */
 	nu_items = mmap(ol_items, nusz, PROT_MEM, MAP_MEM, -1, 0);
 
-	if (q->items) {
+	if (ol_items != NULL) {
 		/* aha, resize */
 		memcpy(nu_items, ol_items, olsz);
 

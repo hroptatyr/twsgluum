@@ -143,6 +143,7 @@ make_qqq(quoq_t qq)
 		QUO_DEBUG("RESZ  QQ  ->%zu\n", nitems + 64);
 		df = init_gq(qq->q, sizeof(*res), nitems + 64);
 		gq_rbld_ll(qq->sbuf, df);
+		gq_rbld_ll(qq->pbuf, df);
 		check_q(qq);
 	}
 	/* get us a new client and populate the object */
