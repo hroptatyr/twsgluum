@@ -83,11 +83,13 @@ check_q(subq_t sq)
 
 	for (gq_item_t ip = sq->q->free->i1st; ip; ip = ip->next, ni++);
 	for (gq_item_t ip = sq->sbuf->i1st; ip; ip = ip->next, ni++);
+	for (gq_item_t ip = sq->norm->i1st; ip; ip = ip->next, ni++);
 	assert(ni == sq->q->nitems / sizeof(struct sub_qqq_s));
 
 	ni = 0;
 	for (gq_item_t ip = sq->q->free->ilst; ip; ip = ip->prev, ni++);
 	for (gq_item_t ip = sq->sbuf->ilst; ip; ip = ip->prev, ni++);
+	for (gq_item_t ip = sq->norm->ilst; ip; ip = ip->prev, ni++);
 	assert(ni == sq->q->nitems / sizeof(struct sub_qqq_s));
 #endif	/* DEBUG_FLAG */
 	return;
