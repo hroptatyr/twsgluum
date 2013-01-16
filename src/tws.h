@@ -269,6 +269,10 @@ extern int tws_req_sdef(tws_t, const void *c);
 extern tws_oid_t tws_sub_quo(tws_t, tws_const_sdef_t c);
 
 /**
+ * Subscribe to quote update (specified by contract). */
+extern tws_oid_t tws_sub_quo_cont(tws_t, tws_const_cont_t c);
+
+/**
  * Unsubscribe from quote update. */
 extern int tws_rem_quo(tws_t, tws_oid_t);
 
