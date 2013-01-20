@@ -355,8 +355,8 @@ qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
 	assert(asp.type == QUOQ_CB_FLUSH);
 
 	if (UNLIKELY(sub == NULL)) {
-		/* huh? :O */
-		;
+		/* probably unsub'd, fuck the quote */
+		return;
 	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
 		ud_chan_send_ser_all(ctx, clo->ser + 0);
 		ud_chan_send_ser_all(ctx, clo->ser + 1);
