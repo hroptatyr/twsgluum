@@ -165,6 +165,11 @@ proc_REQCONTRACT_attr(
 	case TX_ATTR_EXCHANGE:
 		c->exchange = std::string(val);
 		break;
+	/* this one's off standard*/
+	case TX_ATTR_NICK:
+		/* we use the comboLegsDescrip field for our nicks */
+		c->comboLegsDescrip = std::string(val);
+		break;
 	default:
 		break;
 	}
@@ -395,8 +400,18 @@ tws_cont_nick(tws_const_cont_t cont)
 	long int cid = c->conId;
 	const char *sty = c->secType.c_str();
 	const char *xch = c->exchange.c_str();
+	const char *sym;
 
-	snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
+	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
+		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+	} else if (cid) {
+		snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
+	} else if ((sym = c->localSymbol.c_str()) != NULL && sym[0]) {
+		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+	} else {
+		/* we give up */
+		snprintf(nick, sizeof(nick), "p%p_%s_%s", c, sty, xch);
+	}
 	return nick;
 }
 
