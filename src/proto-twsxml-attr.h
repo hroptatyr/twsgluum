@@ -4,7 +4,7 @@
 typedef enum {
 	/* must be first */
 	TX_ATTR_UNK,
-	/* alphabetic list of tags */
+	/* alphabetic list of attrs, disregarding the tag they belong to */
 	TX_ATTR_ACCOUNT,
 	TX_ATTR_ACTION,
 	TX_ATTR_AUXPRICE,
@@ -24,6 +24,9 @@ typedef enum {
 	TX_ATTR_TOTALQUANTITY,
 	TX_ATTR_TYPE,
 	TX_ATTR_XMLNS,
+
+	/* stuff that we invented */
+	TX_ATTR_NICK,
 
 } tws_xml_aid_t;
 
