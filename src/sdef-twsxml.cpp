@@ -165,6 +165,11 @@ proc_REQCONTRACT_attr(
 	case TX_ATTR_EXCHANGE:
 		c->exchange = std::string(val);
 		break;
+	/* this one's off standard*/
+	case TX_ATTR_NICK:
+		/* we use the comboLegsDescrip field for our nicks */
+		c->comboLegsDescrip = std::string(val);
+		break;
 	default:
 		break;
 	}
