@@ -355,8 +355,8 @@ qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
 	assert(asp.type == QUOQ_CB_FLUSH);
 
 	if (UNLIKELY(sub == NULL)) {
-		/* huh? :O */
-		;
+		/* probably unsub'd, fuck the quote */
+		return;
 	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
 		ud_chan_send_ser_all(ctx, clo->ser + 0);
 		ud_chan_send_ser_all(ctx, clo->ser + 1);
@@ -493,14 +493,36 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	case TWS_CB_PRE_CONT_DTL:
 		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
-			struct sub_s s;
+			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
 			const char *nick = tws_sdef_nick(sdef);
+			sub_t s = subq_find_nick(((ctx_t)tws)->sq, nick);
 
-			s.idx = tws_sub_quo(tws, clo.data);
-			s.sdef = tws_dup_sdef(clo.data);
-			s.nick = strdup(nick);
-			subq_add(((ctx_t)tws)->sq, s);
+			/* there should be one on the queue */
+			if (UNLIKELY(s == NULL)) {
+				/* big bugger :|, unsub? */
+				struct sub_s t = {
+					.idx = idx,
+					.sdef = sdef,
+					.nick = strdup(nick),
+				};
+				subq_add(((ctx_t)tws)->sq, t);
+			} else {
+				/* unsub that old guy, sub the new one */
+				QUO_DEBUG("USUB  %u rplcs %u\n", idx, s->idx);
+				tws_rem_quo(tws, s->idx);
+				s->idx = idx;
+				/* change sdef slot (for the better?) */
+				if (UNLIKELY(s->sdef != NULL)) {
+					/* who put that there? */
+					tws_free_sdef(s->sdef);
+				}
+				s->sdef = sdef;
+				/* nicks are the same so don't bother */
+				;
+				/* also, no need to add him again */
+				;
+			}
 		}
 		break;
 	case TWS_CB_PRE_CONT_DTL_END:
