@@ -400,13 +400,14 @@ tws_cont_nick(tws_const_cont_t cont)
 	long int cid = c->conId;
 	const char *sty = c->secType.c_str();
 	const char *xch = c->exchange.c_str();
+	const char *sym;
 
-	if (const char *cnick = c->comboLegsDescrip.c_str()) {
-		snprintf(nick, sizeof(nick), "%s_%s_%s", cnick, sty, xch);
+	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
+		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
 	} else if (cid) {
 		snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
-	} else if (const char *lsym = c->localSymbol.c_str()) {
-		snprintf(nick, sizeof(nick), "%s_%s_%s", lsym, sty, xch);
+	} else if ((sym = c->localSymbol.c_str()) != NULL && sym[0]) {
+		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
 	} else {
 		/* we give up */
 		snprintf(nick, sizeof(nick), "p%p_%s_%s", c, sty, xch);
