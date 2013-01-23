@@ -51,10 +51,12 @@
 # include <assert.h>
 # define QUO_DEBUG(args...)	fprintf(logerr, args)
 # define MAYBE_NOINLINE		__attribute__((noinline))
+# define MAYBE_UNUSED(x)	x
 #else  /* !DEBUG_FLAG */
 # define QUO_DEBUG(args...)
 # define assert(x)
 # define MAYBE_NOINLINE
+# define MAYBE_UNUSED(x)	UNUSED(x)
 #endif	/* DEBUG_FLAG */
 
 typedef struct quo_qqq_s *quo_qqq_t;
@@ -109,7 +111,7 @@ matches_q30_p(quo_qqq_t cell, struct key_s k)
 #include "gq.c"
 
 static void
-check_q(quoq_t qq)
+check_q(quoq_t MAYBE_UNUSED(qq))
 {
 #if defined DEBUG_FLAG
 	/* count all items */
