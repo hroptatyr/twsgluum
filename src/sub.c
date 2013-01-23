@@ -49,10 +49,12 @@
 # include <assert.h>
 # define SUB_DEBUG(args...)	fprintf(logerr, args)
 # define MAYBE_NOINLINE		__attribute__((noinline))
+# define MAYBE_UNUSED(x)	x
 #else  /* !DEBUG_FLAG */
 # define SUB_DEBUG(args...)
 # define assert(x)
 # define MAYBE_NOINLINE
+# define MAYBE_UNUSED(x)	UNUSED(x)
 #endif	/* DEBUG_FLAG */
 
 typedef struct sub_qqq_s *sub_qqq_t;
@@ -75,7 +77,7 @@ struct subq_s {
 #include "gq.c"
 
 static void
-check_q(subq_t sq)
+check_q(subq_t MAYBE_UNUSED(sq))
 {
 #if defined DEBUG_FLAG
 	/* count all items */
