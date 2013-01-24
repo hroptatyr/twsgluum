@@ -55,10 +55,10 @@
 #endif	/* HAVE_EV_H */
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/utsname.h>
 #include <unserding/unserding.h>
-#include <unserding/protocore.h>
 #if defined HAVE_UTERUS_UTERUS_H
 # include <uterus/uterus.h>
 # include <uterus/m30.h>
@@ -113,7 +113,7 @@ struct ctx_s {
 	/* subscription queue */
 	subq_t sq;
 
-	ud_chan_t beef;
+	ud_sock_t beef;
 };
 
 
@@ -155,13 +155,13 @@ make_tcp(void)
 }
 
 static int
-sock_listener(int s, ud_sockaddr_t sa)
+sock_listener(int s, struct sockaddr_in6 *sa)
 {
 	if (s < 0) {
 		return s;
 	}
 
-	if (bind(s, &sa->sa, sizeof(*sa)) < 0) {
+	if (bind(s, (struct sockaddr*)&sa, sizeof(*sa)) < 0) {
 		return -1;
 	}
 
@@ -273,7 +273,7 @@ static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
 static size_t brag_uri_offset = 0;
 
 static int
-make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
+make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
 {
 	struct utsname uts[1];
 	char dnsdom[64];
@@ -281,16 +281,20 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 	char *curs = brag_uri + uri_host_offs - 1;
 	size_t rest = sizeof(brag_uri) - uri_host_offs;
 	int len;
+	uint16_t p;
 
 	if (uname(uts) < 0) {
 		return -1;
 	} else if (getdomainname(dnsdom, sizeof(dnsdom)) < 0) {
 		return -1;
+	} else if (UNLIKELY(sz < sizeof(struct sockaddr_in6))) {
+		return -1;
 	}
 
+	p = ntohs(sa->sin6_port);
 	len = snprintf(
 		curs, rest, "%s.%s:%hu/secdef?idx=",
-		uts->nodename, dnsdom, ntohs(sa->sa6.sin6_port));
+		uts->nodename, dnsdom, p);
 
 	if (len > 0) {
 		brag_uri_offset = uri_host_offs + len - 1;
@@ -606,8 +610,11 @@ twsc_conn_clos(ctx_t ctx)
 
 struct dccp_conn_s {
 	ev_io io[1];
-	union ud_sockaddr_u sa[1];
-	socklen_t sasz;
+	union {
+		struct sockaddr sa[1];
+		struct sockaddr_storage ss[1];
+	};
+	socklen_t sz[1];
 };
 
 static inline void
@@ -656,12 +663,11 @@ Content-Type: text/xml\r\n\
 
         /* obtain the address in human readable form */
         {
-                int fam = ud_sockaddr_fam(cdata->sa);
-                const struct sockaddr *addr = ud_sockaddr_addr(cdata->sa);
+		struct sockaddr_in6 *s6 = (void*)cdata->ss;
 
-                a = inet_ntop(fam, addr, buf, sizeof(buf));
+		a = inet_ntop(s6->sin6_family, (void*)s6, buf, sizeof(buf));
+		p = ntohs(s6->sin6_port);
         }
-        p = ud_sockaddr_port(cdata->sa);
 
 	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
 
@@ -832,8 +838,8 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		ev_io_shut(EV_A_ conns[next].io);
 	}
 
-	conns[next].sasz = sizeof(*conns[next].sa);
-	if ((s = accept(w->fd, &conns[next].sa->sa, &conns[next].sasz)) < 0) {
+	conns[next].sz[0] = sizeof(*conns[next].sa);
+	if ((s = accept(w->fd, conns[next].sa, conns[next].sz)) < 0) {
 		return;
 	}
 
@@ -980,36 +986,31 @@ main(int argc, char *argv[])
 	ev_signal_init(sigusr1_watcher, sigusr1_cb, SIGUSR1);
 	ev_signal_start(EV_A_ sigusr1_watcher);
 
-	/* attach a multicast listener
-	 * we add this quite late so that it's unlikely that a plethora of
-	 * events has already been injected into our precious queue
-	 * causing the libev main loop to crash. */
-	union __chan_u {
-		ud_chan_t c;
-		void *p;
-	};
+	/* attach a multicast listener */
 	{
-		union __chan_u x = {ud_chan_init(UD_NETWORK_SERVICE)};
-		int s = ud_chan_init_mcast(x.c);
+		ud_sock_t s;
 
-		setsock_rcvz(s, 0);
-		ctrl->data = x.p;
-		ev_io_init(ctrl, beef_cb, s, EV_READ);
-		ev_io_start(EV_A_ ctrl);
+		if ((s = ud_socket((struct ud_sockopt_s){UD_SUB})) != NULL) {
+			ctrl->data = s;
+			ev_io_init(ctrl, beef_cb, s->fd, EV_READ);
+			ev_io_start(EV_A_ ctrl);
+		}
 	}
 	/* go through all beef channels */
 	if (argi->beef_given) {
-		ctx->beef = ud_chan_init(argi->beef_arg);
+		struct ud_sockopt_s opt = {
+			UD_PUB,
+			.port = (short unsigned int)argi->beef_arg,
+		};
+		ctx->beef = ud_socket(opt);
 	}
 
 	/* make a channel for http/dccp requests */
 	{
-		union ud_sockaddr_u sa = {
-			.sa6 = {
-				.sin6_family = AF_INET6,
-				.sin6_addr = in6addr_any,
-				.sin6_port = 0,
-			},
+		struct sockaddr_in6 sa = {
+			.sin6_family = AF_INET6,
+			.sin6_addr = in6addr_any,
+			.sin6_port = 0,
 		};
 		socklen_t sa_len = sizeof(sa);
 		int s;
@@ -1027,7 +1028,7 @@ main(int argc, char *argv[])
 			ev_io_init(dccp + 0, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp);
 
-			getsockname(s, &sa.sa, &sa_len);
+			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
 
@@ -1046,7 +1047,7 @@ main(int argc, char *argv[])
 			ev_io_init(dccp + 1, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp + 1);
 
-			getsockname(s, &sa.sa, &sa_len);
+			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
 		if (s >= 0) {
@@ -1083,13 +1084,13 @@ main(int argc, char *argv[])
 
 	/* detaching beef and ctrl channels */
 	if (ctx->beef) {
-		ud_chan_fini(ctx->beef);
+		ud_close(ctx->beef);
 	}
 	{
-		ud_chan_t c = ctrl->data;
+		ud_sock_t c = ctrl->data;
 
 		ev_io_stop(EV_A_ ctrl);
-		ud_chan_fini(c);
+		ud_close(c);
 	}
 
 	/* detach http/dccp */
