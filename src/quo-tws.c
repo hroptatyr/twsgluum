@@ -219,52 +219,43 @@ out:
 # define UTE_CMD	UTE_CMD_LE
 #endif	/* WORDS_BIGENDIAN */
 
-static size_t pno = 0;
-
-static inline void
-udpc_seria_rewind(udpc_seria_t ser)
+static inline int
+ud_pack_sl1t(ud_sock_t s, const_sl1t_t q)
 {
-	struct udproto_hdr_s *hdr;
-
-	ser->msgoff = 0;
-	hdr = (void*)(ser->msg - UDPC_HDRLEN);
-	hdr->cno_pno = pno++;
-	return;
+	return ud_pack_msg(
+		s, (struct ud_msg_s){
+			.svc = UTE_CMD,
+			.data = q,
+			.dlen = sizeof(*q),
+		});
 }
 
-static inline void
-ud_chan_send_ser_all(ctx_t ctx, udpc_seria_t ser)
+static int
+ud_pack_brag(
+	ud_sock_t s, uint32_t idx,
+	const char *sym, size_t syz,
+	const char *uri, size_t urz)
 {
-	if (LIKELY(ctx->beef != NULL)) {
-		QUO_DEBUG("CHAN\n");
-		ud_chan_send_ser(ctx->beef, ser);
-	}
-	return;
-}
-
-static bool
-udpc_seria_fits_sl1t_p(udpc_seria_t ser, const_sl1t_t UNUSED(q))
-{
-	/* super quick check if we can afford to take it the pkt on
-	 * we need roughly 16 bytes */
-	if (ser->msgoff + sizeof(*q) > ser->len) {
-		return false;
-	}
-	return true;
-}
-
-static bool
-udpc_seria_fits_dsm_p(udpc_seria_t ser, const char *UNUSED(sym), size_t len)
-{
-	return udpc_seria_msglen(ser) + len + 2 + 4 <= UDPC_PLLEN;
-}
-
-static inline void
-udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
-{
-	memcpy(ser->msg + ser->msgoff, q, sizeof(*q));
-	ser->msgoff += sizeof(*q);
-	return;
+	struct __brag_wire_s {
+		uint16_t idx;
+		uint8_t syz;
+		uint8_t urz;
+		char symuri[256 - sizeof(uint32_t)];
+	};
+	struct __brag_wire_s msg = {
+		.idx = htons((uint16_t)idx),
+		.syz = (uint8_t)syz,
+		.urz = (uint8_t)urz,
+	};
+	memcpy(msg.symuri, sym, (uint8_t)syz);
+	memcpy(msg.symuri + (uint8_t)syz, uri, (uint8_t)urz);
+	return ud_pack_msg(
+		s, (struct ud_msg_s){
+			.svc = UTE_QMETA,
+			.data = &msg,
+			.dlen = offsetof(struct __brag_wire_s, symuri) +
+				(uint8_t)syz + (uint8_t)urz,
+		});
 }
 
 /* looks like dccp://host:port/secdef?idx=00000 */
@@ -305,32 +296,17 @@ make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
 }
 
 static int
-brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
+brag(ctx_t ctx, sub_t sub)
 {
 	const char *sym = sub->nick;
-	size_t len, tot;
+	size_t syz = strlen(sym);
+	size_t brag_urz = brag_uri_offset;
 
-	tot = (len = strlen(sym)) + brag_uri_offset + 5;
-
-	if (UNLIKELY(!udpc_seria_fits_dsm_p(ser, sym, tot))) {
-		ud_packet_t pkt = {UDPC_PKTLEN, /*hack*/ser->msg - UDPC_HDRLEN};
-		ud_pkt_no_t pno = udpc_pkt_pno(pkt);
-
-		ud_chan_send_ser_all(ctx, ser);
-
-		/* hack hack hack
-		 * reset the packet */
-		udpc_make_pkt(pkt, 0, pno + 2, UDPC_PKT_RPL(UTE_QMETA));
-		ser->msgoff = 0;
-	}
-	/* add this guy */
-	udpc_seria_add_ui16(ser, sub->uidx);
-	udpc_seria_add_str(ser, sym, len);
 	/* put stuff in our uri */
-	len = snprintf(
+	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
 		"%u", sub->uidx);
-	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
+	ud_pack_brag(ctx->beef, sub->uidx, sym, syz, brag_uri, brag_urz);
 	return 0;
 }
 
@@ -343,7 +319,6 @@ q30_sl1t_typ(quo_typ_t qtyp)
 
 struct flush_clo_s {
 	ctx_t ctx;
-	struct udpc_seria_s ser[2];
 	struct sl1t_s l1t[1];
 };
 
@@ -361,52 +336,35 @@ qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
 	if (UNLIKELY(sub == NULL)) {
 		/* probably unsub'd, fuck the quote */
 		return;
-	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
-		ud_chan_send_ser_all(ctx, clo->ser + 0);
-		ud_chan_send_ser_all(ctx, clo->ser + 1);
-		udpc_seria_rewind(clo->ser + 0);
-		udpc_seria_rewind(clo->ser + 1);
 	}
-
-	/* fill in the rest of the l1t info */
-	sl1t_set_tblidx(l1t, sub->uidx);
-	sl1t_set_ttf(l1t, q30_sl1t_typ(q.typ));
-	l1t->pri = q.p;
-	l1t->qty = q.q;
-	/* stuff him up ser+1's sleeve */
-	udpc_seria_add_sl1t(clo->ser + 1, l1t);
 
 	{
 	/* check if it's time to brag about this thing again */
 		uint32_t now = sl1t_stmp_sec(l1t);
 
 		if (UNLIKELY(now - sub->last_dsm >= BRAG_INTV)) {
-			brag(clo->ctx, clo->ser + 0, sub);
+			brag(clo->ctx, sub);
 			/* update sub */
 			sub->last_dsm = now;
 		}
 	}
+
+	/* fill in the rest of the l1t info */
+	sl1t_set_tblidx(l1t, (uint16_t)sub->uidx);
+	sl1t_set_ttf(l1t, (uint16_t)q30_sl1t_typ(q.typ));
+	l1t->pri = q.p;
+	l1t->qty = q.q;
+	/* stuff him up the socket's sleeve */
+	ud_pack_sl1t(ctx->beef, l1t);
 	return;
 }
 
 static void
 quoq_flush_maybe(ctx_t ctx)
 {
-	static char buf[UDPC_PKTLEN];
-	static char dsm[UDPC_PKTLEN];
 	struct flush_clo_s clo = {
 		.ctx = ctx,
 	};
-
-#define PKT(x)		((ud_packet_t){sizeof(x), x})
-	udpc_make_pkt(PKT(dsm), 0, pno++, UDPC_PKT_RPL(UTE_QMETA));
-	udpc_seria_init(
-		clo.ser + 0, UDPC_PAYLOAD(dsm), UDPC_PAYLLEN(sizeof(dsm)));
-
-	udpc_make_pkt(PKT(buf), 0, pno++, UTE_CMD);
-	udpc_set_data_pkt(PKT(buf));
-	udpc_seria_init(
-		clo.ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
 
 	/* populate l1t somewhat */
 	{
@@ -420,9 +378,8 @@ quoq_flush_maybe(ctx_t ctx)
 	/* get the packet ctor'd */
 	quoq_flush_cb(ctx->qq, (void(*)())qq_flush_cb, &clo);
 
-	/* just drain the whole shebang */
-	ud_chan_send_ser_all(ctx, clo.ser + 0);
-	ud_chan_send_ser_all(ctx, clo.ser + 1);
+	/* make sure nothing gets buffered */
+	ud_flush(ctx->beef);
 	return;
 }
 
