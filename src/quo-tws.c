@@ -55,10 +55,10 @@
 #endif	/* HAVE_EV_H */
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/utsname.h>
 #include <unserding/unserding.h>
-#include <unserding/protocore.h>
 #if defined HAVE_UTERUS_UTERUS_H
 # include <uterus/uterus.h>
 # include <uterus/m30.h>
@@ -113,7 +113,7 @@ struct ctx_s {
 	/* subscription queue */
 	subq_t sq;
 
-	ud_chan_t beef;
+	ud_sock_t beef;
 };
 
 
@@ -155,13 +155,13 @@ make_tcp(void)
 }
 
 static int
-sock_listener(int s, ud_sockaddr_t sa)
+sock_listener(int s, struct sockaddr_in6 *sa)
 {
 	if (s < 0) {
 		return s;
 	}
 
-	if (bind(s, &sa->sa, sizeof(*sa)) < 0) {
+	if (bind(s, (struct sockaddr*)&sa, sizeof(*sa)) < 0) {
 		return -1;
 	}
 
@@ -219,52 +219,43 @@ out:
 # define UTE_CMD	UTE_CMD_LE
 #endif	/* WORDS_BIGENDIAN */
 
-static size_t pno = 0;
-
-static inline void
-udpc_seria_rewind(udpc_seria_t ser)
+static inline int
+ud_pack_sl1t(ud_sock_t s, const_sl1t_t q)
 {
-	struct udproto_hdr_s *hdr;
-
-	ser->msgoff = 0;
-	hdr = (void*)(ser->msg - UDPC_HDRLEN);
-	hdr->cno_pno = pno++;
-	return;
+	return ud_pack_msg(
+		s, (struct ud_msg_s){
+			.svc = UTE_CMD,
+			.data = q,
+			.dlen = sizeof(*q),
+		});
 }
 
-static inline void
-ud_chan_send_ser_all(ctx_t ctx, udpc_seria_t ser)
+static int
+ud_pack_brag(
+	ud_sock_t s, uint32_t idx,
+	const char *sym, size_t syz,
+	const char *uri, size_t urz)
 {
-	if (LIKELY(ctx->beef != NULL)) {
-		QUO_DEBUG("CHAN\n");
-		ud_chan_send_ser(ctx->beef, ser);
-	}
-	return;
-}
-
-static bool
-udpc_seria_fits_sl1t_p(udpc_seria_t ser, const_sl1t_t UNUSED(q))
-{
-	/* super quick check if we can afford to take it the pkt on
-	 * we need roughly 16 bytes */
-	if (ser->msgoff + sizeof(*q) > ser->len) {
-		return false;
-	}
-	return true;
-}
-
-static bool
-udpc_seria_fits_dsm_p(udpc_seria_t ser, const char *UNUSED(sym), size_t len)
-{
-	return udpc_seria_msglen(ser) + len + 2 + 4 <= UDPC_PLLEN;
-}
-
-static inline void
-udpc_seria_add_sl1t(udpc_seria_t ser, const_sl1t_t q)
-{
-	memcpy(ser->msg + ser->msgoff, q, sizeof(*q));
-	ser->msgoff += sizeof(*q);
-	return;
+	struct __brag_wire_s {
+		uint16_t idx;
+		uint8_t syz;
+		uint8_t urz;
+		char symuri[256 - sizeof(uint32_t)];
+	};
+	struct __brag_wire_s msg = {
+		.idx = htons((uint16_t)idx),
+		.syz = (uint8_t)syz,
+		.urz = (uint8_t)urz,
+	};
+	memcpy(msg.symuri, sym, (uint8_t)syz);
+	memcpy(msg.symuri + (uint8_t)syz, uri, (uint8_t)urz);
+	return ud_pack_msg(
+		s, (struct ud_msg_s){
+			.svc = UTE_QMETA,
+			.data = &msg,
+			.dlen = offsetof(struct __brag_wire_s, symuri) +
+				(uint8_t)syz + (uint8_t)urz,
+		});
 }
 
 /* looks like dccp://host:port/secdef?idx=00000 */
@@ -273,7 +264,7 @@ static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
 static size_t brag_uri_offset = 0;
 
 static int
-make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
+make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
 {
 	struct utsname uts[1];
 	char dnsdom[64];
@@ -281,16 +272,20 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 	char *curs = brag_uri + uri_host_offs - 1;
 	size_t rest = sizeof(brag_uri) - uri_host_offs;
 	int len;
+	uint16_t p;
 
 	if (uname(uts) < 0) {
 		return -1;
 	} else if (getdomainname(dnsdom, sizeof(dnsdom)) < 0) {
 		return -1;
+	} else if (UNLIKELY(sz < sizeof(struct sockaddr_in6))) {
+		return -1;
 	}
 
+	p = ntohs(sa->sin6_port);
 	len = snprintf(
 		curs, rest, "%s.%s:%hu/secdef?idx=",
-		uts->nodename, dnsdom, ntohs(sa->sa6.sin6_port));
+		uts->nodename, dnsdom, p);
 
 	if (len > 0) {
 		brag_uri_offset = uri_host_offs + len - 1;
@@ -301,32 +296,17 @@ make_brag_uri(ud_sockaddr_t sa, socklen_t UNUSED(sa_len))
 }
 
 static int
-brag(ctx_t ctx, udpc_seria_t ser, sub_t sub)
+brag(ctx_t ctx, sub_t sub)
 {
 	const char *sym = sub->nick;
-	size_t len, tot;
+	size_t syz = strlen(sym);
+	size_t brag_urz = brag_uri_offset;
 
-	tot = (len = strlen(sym)) + brag_uri_offset + 5;
-
-	if (UNLIKELY(!udpc_seria_fits_dsm_p(ser, sym, tot))) {
-		ud_packet_t pkt = {UDPC_PKTLEN, /*hack*/ser->msg - UDPC_HDRLEN};
-		ud_pkt_no_t pno = udpc_pkt_pno(pkt);
-
-		ud_chan_send_ser_all(ctx, ser);
-
-		/* hack hack hack
-		 * reset the packet */
-		udpc_make_pkt(pkt, 0, pno + 2, UDPC_PKT_RPL(UTE_QMETA));
-		ser->msgoff = 0;
-	}
-	/* add this guy */
-	udpc_seria_add_ui16(ser, sub->uidx);
-	udpc_seria_add_str(ser, sym, len);
 	/* put stuff in our uri */
-	len = snprintf(
+	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
 		"%u", sub->uidx);
-	udpc_seria_add_str(ser, brag_uri, brag_uri_offset + len);
+	ud_pack_brag(ctx->beef, sub->uidx, sym, syz, brag_uri, brag_urz);
 	return 0;
 }
 
@@ -339,7 +319,6 @@ q30_sl1t_typ(quo_typ_t qtyp)
 
 struct flush_clo_s {
 	ctx_t ctx;
-	struct udpc_seria_s ser[2];
 	struct sl1t_s l1t[1];
 };
 
@@ -357,52 +336,35 @@ qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
 	if (UNLIKELY(sub == NULL)) {
 		/* probably unsub'd, fuck the quote */
 		return;
-	} else if (UNLIKELY(!udpc_seria_fits_sl1t_p(clo->ser + 1, l1t))) {
-		ud_chan_send_ser_all(ctx, clo->ser + 0);
-		ud_chan_send_ser_all(ctx, clo->ser + 1);
-		udpc_seria_rewind(clo->ser + 0);
-		udpc_seria_rewind(clo->ser + 1);
 	}
-
-	/* fill in the rest of the l1t info */
-	sl1t_set_tblidx(l1t, sub->uidx);
-	sl1t_set_ttf(l1t, q30_sl1t_typ(q.typ));
-	l1t->pri = q.p;
-	l1t->qty = q.q;
-	/* stuff him up ser+1's sleeve */
-	udpc_seria_add_sl1t(clo->ser + 1, l1t);
 
 	{
 	/* check if it's time to brag about this thing again */
 		uint32_t now = sl1t_stmp_sec(l1t);
 
 		if (UNLIKELY(now - sub->last_dsm >= BRAG_INTV)) {
-			brag(clo->ctx, clo->ser + 0, sub);
+			brag(clo->ctx, sub);
 			/* update sub */
 			sub->last_dsm = now;
 		}
 	}
+
+	/* fill in the rest of the l1t info */
+	sl1t_set_tblidx(l1t, (uint16_t)sub->uidx);
+	sl1t_set_ttf(l1t, (uint16_t)q30_sl1t_typ(q.typ));
+	l1t->pri = q.p;
+	l1t->qty = q.q;
+	/* stuff him up the socket's sleeve */
+	ud_pack_sl1t(ctx->beef, l1t);
 	return;
 }
 
 static void
 quoq_flush_maybe(ctx_t ctx)
 {
-	static char buf[UDPC_PKTLEN];
-	static char dsm[UDPC_PKTLEN];
 	struct flush_clo_s clo = {
 		.ctx = ctx,
 	};
-
-#define PKT(x)		((ud_packet_t){sizeof(x), x})
-	udpc_make_pkt(PKT(dsm), 0, pno++, UDPC_PKT_RPL(UTE_QMETA));
-	udpc_seria_init(
-		clo.ser + 0, UDPC_PAYLOAD(dsm), UDPC_PAYLLEN(sizeof(dsm)));
-
-	udpc_make_pkt(PKT(buf), 0, pno++, UTE_CMD);
-	udpc_set_data_pkt(PKT(buf));
-	udpc_seria_init(
-		clo.ser + 1, UDPC_PAYLOAD(buf), UDPC_PAYLLEN(sizeof(buf)));
 
 	/* populate l1t somewhat */
 	{
@@ -416,9 +378,8 @@ quoq_flush_maybe(ctx_t ctx)
 	/* get the packet ctor'd */
 	quoq_flush_cb(ctx->qq, (void(*)())qq_flush_cb, &clo);
 
-	/* just drain the whole shebang */
-	ud_chan_send_ser_all(ctx, clo.ser + 0);
-	ud_chan_send_ser_all(ctx, clo.ser + 1);
+	/* make sure nothing gets buffered */
+	ud_flush(ctx->beef);
 	return;
 }
 
@@ -606,8 +567,11 @@ twsc_conn_clos(ctx_t ctx)
 
 struct dccp_conn_s {
 	ev_io io[1];
-	union ud_sockaddr_u sa[1];
-	socklen_t sasz;
+	union {
+		struct sockaddr sa[1];
+		struct sockaddr_storage ss[1];
+	};
+	socklen_t sz[1];
 };
 
 static inline void
@@ -656,12 +620,11 @@ Content-Type: text/xml\r\n\
 
         /* obtain the address in human readable form */
         {
-                int fam = ud_sockaddr_fam(cdata->sa);
-                const struct sockaddr *addr = ud_sockaddr_addr(cdata->sa);
+		struct sockaddr_in6 *s6 = (void*)cdata->ss;
 
-                a = inet_ntop(fam, addr, buf, sizeof(buf));
+		a = inet_ntop(s6->sin6_family, (void*)s6, buf, sizeof(buf));
+		p = ntohs(s6->sin6_port);
         }
-        p = ud_sockaddr_port(cdata->sa);
 
 	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
 
@@ -832,8 +795,8 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		ev_io_shut(EV_A_ conns[next].io);
 	}
 
-	conns[next].sasz = sizeof(*conns[next].sa);
-	if ((s = accept(w->fd, &conns[next].sa->sa, &conns[next].sasz)) < 0) {
+	conns[next].sz[0] = sizeof(*conns[next].sa);
+	if ((s = accept(w->fd, conns[next].sa, conns[next].sz)) < 0) {
 		return;
 	}
 
@@ -980,36 +943,31 @@ main(int argc, char *argv[])
 	ev_signal_init(sigusr1_watcher, sigusr1_cb, SIGUSR1);
 	ev_signal_start(EV_A_ sigusr1_watcher);
 
-	/* attach a multicast listener
-	 * we add this quite late so that it's unlikely that a plethora of
-	 * events has already been injected into our precious queue
-	 * causing the libev main loop to crash. */
-	union __chan_u {
-		ud_chan_t c;
-		void *p;
-	};
+	/* attach a multicast listener */
 	{
-		union __chan_u x = {ud_chan_init(UD_NETWORK_SERVICE)};
-		int s = ud_chan_init_mcast(x.c);
+		ud_sock_t s;
 
-		setsock_rcvz(s, 0);
-		ctrl->data = x.p;
-		ev_io_init(ctrl, beef_cb, s, EV_READ);
-		ev_io_start(EV_A_ ctrl);
+		if ((s = ud_socket((struct ud_sockopt_s){UD_SUB})) != NULL) {
+			ctrl->data = s;
+			ev_io_init(ctrl, beef_cb, s->fd, EV_READ);
+			ev_io_start(EV_A_ ctrl);
+		}
 	}
 	/* go through all beef channels */
 	if (argi->beef_given) {
-		ctx->beef = ud_chan_init(argi->beef_arg);
+		struct ud_sockopt_s opt = {
+			UD_PUB,
+			.port = (short unsigned int)argi->beef_arg,
+		};
+		ctx->beef = ud_socket(opt);
 	}
 
 	/* make a channel for http/dccp requests */
 	{
-		union ud_sockaddr_u sa = {
-			.sa6 = {
-				.sin6_family = AF_INET6,
-				.sin6_addr = in6addr_any,
-				.sin6_port = 0,
-			},
+		struct sockaddr_in6 sa = {
+			.sin6_family = AF_INET6,
+			.sin6_addr = in6addr_any,
+			.sin6_port = 0,
 		};
 		socklen_t sa_len = sizeof(sa);
 		int s;
@@ -1027,7 +985,7 @@ main(int argc, char *argv[])
 			ev_io_init(dccp + 0, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp);
 
-			getsockname(s, &sa.sa, &sa_len);
+			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
 
@@ -1046,7 +1004,7 @@ main(int argc, char *argv[])
 			ev_io_init(dccp + 1, dccp_cb, s, EV_READ);
 			ev_io_start(EV_A_ dccp + 1);
 
-			getsockname(s, &sa.sa, &sa_len);
+			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
 		if (s >= 0) {
@@ -1083,13 +1041,13 @@ main(int argc, char *argv[])
 
 	/* detaching beef and ctrl channels */
 	if (ctx->beef) {
-		ud_chan_fini(ctx->beef);
+		ud_close(ctx->beef);
 	}
 	{
-		ud_chan_t c = ctrl->data;
+		ud_sock_t c = ctrl->data;
 
 		ev_io_stop(EV_A_ ctrl);
-		ud_chan_fini(c);
+		ud_close(c);
 	}
 
 	/* detach http/dccp */
