@@ -722,12 +722,17 @@ correctly, or fiddle with ]$1[_CFLAGS if its location is non-standard.
 ])dnl PKG_CHECK_MODULES_HEADERS
 
 AC_DEFUN([PKG_CHECK_VAR_MSG], [
-dnl Usage: PKG_CHECK_VAR([PKG], [VARIABLE], [MESSAGE])
+dnl Usage: PKG_CHECK_VAR_MSG(PKG, VARIABLE, MESSAGE, [ACTION_IF_FOUND], [ACTION_IF_NOT_FOUND])
+
+	AC_REQUIRE([PKG_PROG_PKG_CONFIG])
+	AC_ARG_VAR([$2], [value of $2 for $1, overriding pkg-config])
 
 	AC_CACHE_CHECK([$3], [pkg_cv_$2], [
 		_PKG_CONFIG([$2], [variable=$2], [$1])
 	])
-	[]$2[]="${pkg_cv_[]$2[]}"
+	AS_VAR_COPY([$2], [pkg_cv_][$2])
+
+	AS_VAR_IF([$2], [""], [$5], [$4])dnl
 	AC_SUBST([$2])
 ])dnl PKG_CHECK_VAR_MSG
 
