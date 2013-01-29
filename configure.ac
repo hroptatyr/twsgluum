@@ -99,10 +99,10 @@ fi
 PKG_CHECK_MODULES([unserding], [unserding >= 0.3.0])
 PKG_CHECK_MODULES([unsermarkt], [unsermarkt >= 0.2.0], [
 	## check for unsermoddir variable
-	PKG_CHECK_VAR([unsermarkt], [unsermoddir], [unserding DSOs])
+	PKG_CHECK_VAR_MSG([unsermarkt], [unsermoddir], [unserding DSOs])
 
 	## check for unserincdir variable
-	PKG_CHECK_VAR([unsermarkt], [unserincdir], [unserding DSOs headers])
+	PKG_CHECK_VAR_MSG([unsermarkt], [unserincdir], [unserding DSOs headers])
 ])
 
 ## check for ute
