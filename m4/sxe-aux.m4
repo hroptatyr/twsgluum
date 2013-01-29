@@ -721,4 +721,14 @@ correctly, or fiddle with ]$1[_CFLAGS if its location is non-standard.
 		], [$5])
 ])dnl PKG_CHECK_MODULES_HEADERS
 
+AC_DEFUN([PKG_CHECK_VAR], [
+dnl Usage: PKG_CHECK_VAR([PKG], [VARIABLE], [MESSAGE])
+
+	AC_CACHE_CHECK([$3], [pkg_cv_$2], [
+		_PKG_CONFIG([$2], [variable=$2], [$1])
+	])
+	[]$2[]="${pkg_cv_[]$2[]}"
+	AC_SUBST([$2])
+])dnl PKG_CHECK_VAR
+
 dnl sxe-aux.m4 ends here
