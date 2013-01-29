@@ -945,10 +945,11 @@ main(int argc, char *argv[])
 
 	/* attach a multicast listener */
 	{
-		ud_sock_t s;
-
-		if ((s = ud_socket((struct ud_sockopt_s){UD_SUB})) != NULL) {
-			ctrl->data = s;
+		struct ud_sockopt_s opt = {
+			UD_SUB,
+		};
+		if ((ctrl->data = ud_socket(opt)) != NULL) {
+			ud_sock_t s = ctrl->data;
 			ev_io_init(ctrl, beef_cb, s->fd, EV_READ);
 			ev_io_start(EV_A_ ctrl);
 		}
