@@ -69,6 +69,8 @@
 # error uterus headers are mandatory
 #endif	/* HAVE_UTERUS_UTERUS_H || HAVE_UTERUS_H */
 
+#include <svc-uterus.h>
+
 /* the tws api */
 #include "quo-tws.h"
 #include "quo.h"
@@ -208,55 +210,6 @@ out:
 
 /* unserding goodies */
 #define BRAG_INTV	(10)
-#define UTE_QMETA	0x7572
-
-/* ute services come in 2 flavours little endian "ut" and big endian "UT" */
-#define UTE_CMD_LE	0x7574
-#define UTE_CMD_BE	0x5554
-#if defined WORDS_BIGENDIAN
-# define UTE_CMD	UTE_CMD_BE
-#else  /* !WORDS_BIGENDIAN */
-# define UTE_CMD	UTE_CMD_LE
-#endif	/* WORDS_BIGENDIAN */
-
-static inline int
-ud_pack_sl1t(ud_sock_t s, const_sl1t_t q)
-{
-	return ud_pack_msg(
-		s, (struct ud_msg_s){
-			.svc = UTE_CMD,
-			.data = q,
-			.dlen = sizeof(*q),
-		});
-}
-
-static int
-ud_pack_brag(
-	ud_sock_t s, uint32_t idx,
-	const char *sym, size_t syz,
-	const char *uri, size_t urz)
-{
-	struct __brag_wire_s {
-		uint16_t idx;
-		uint8_t syz;
-		uint8_t urz;
-		char symuri[256 - sizeof(uint32_t)];
-	};
-	struct __brag_wire_s msg = {
-		.idx = htons((uint16_t)idx),
-		.syz = (uint8_t)syz,
-		.urz = (uint8_t)urz,
-	};
-	memcpy(msg.symuri, sym, (uint8_t)syz);
-	memcpy(msg.symuri + (uint8_t)syz, uri, (uint8_t)urz);
-	return ud_pack_msg(
-		s, (struct ud_msg_s){
-			.svc = UTE_QMETA,
-			.data = &msg,
-			.dlen = offsetof(struct __brag_wire_s, symuri) +
-				(uint8_t)syz + (uint8_t)urz,
-		});
-}
 
 /* looks like dccp://host:port/secdef?idx=00000 */
 static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
@@ -298,6 +251,7 @@ make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
 static int
 brag(ctx_t ctx, sub_t sub)
 {
+	struct um_qmeta_s brg;
 	const char *sym = sub->nick;
 	size_t syz = strlen(sym);
 	size_t brag_urz = brag_uri_offset;
@@ -306,7 +260,13 @@ brag(ctx_t ctx, sub_t sub)
 	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
 		"%u", sub->uidx);
-	ud_pack_brag(ctx->beef, sub->uidx, sym, syz, brag_uri, brag_urz);
+	/* pack the qmeta message */
+	brg.idx = sub->uidx;
+	brg.sym = sym;
+	brg.symlen = syz;
+	brg.uri = brag_uri;
+	brg.urilen = brag_urz;
+	um_pack_brag(ctx->beef, &brg);
 	return 0;
 }
 
@@ -355,7 +315,7 @@ qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
 	l1t->pri = q.p;
 	l1t->qty = q.q;
 	/* stuff him up the socket's sleeve */
-	ud_pack_sl1t(ctx->beef, l1t);
+	um_pack_sl1t(ctx->beef, l1t);
 	return;
 }
 
