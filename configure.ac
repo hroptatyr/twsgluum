@@ -96,7 +96,14 @@ if test -n "${GPERF}"; then
 fi
 
 ## check for unserding
-PKG_CHECK_MODULES([unserding], [unserding >= 0.2.2])
+PKG_CHECK_MODULES([unserding], [unserding >= 0.3.0])
+PKG_CHECK_MODULES([unsermarkt], [unsermarkt >= 0.2.0], [
+	## check for unsermoddir variable
+	PKG_CHECK_VAR([unsermarkt], [unsermoddir], [unserding DSOs])
+
+	## check for unserincdir variable
+	PKG_CHECK_VAR([unsermarkt], [unserincdir], [unserding DSOs headers])
+])
 
 ## check for ute
 PKG_CHECK_MODULES_HEADERS([uterus], [uterus >= 0.2.3], [uterus.h uterus/uterus.h])

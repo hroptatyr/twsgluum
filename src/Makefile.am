@@ -50,13 +50,15 @@ quo_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_QUO
 quo_tws_CPPFLAGS += $(twsapi_CFLAGS)
 quo_tws_CPPFLAGS += $(libev_CFLAGS)
 quo_tws_CPPFLAGS += $(expat_CFLAGS)
-quo_tws_CPPFLAGS += $(unserding_CFLAGS)
+quo_tws_CPPFLAGS += $(unserding_CFLAGS) -DUD_NEW_API
+quo_tws_CPPFLAGS += -I$(unserincdir)
 quo_tws_LDFLAGS = $(AM_LDFLAGS)
 quo_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 quo_tws_LDFLAGS += $(libev_LIBS)
 quo_tws_LDFLAGS += $(expat_LIBS)
 quo_tws_LDFLAGS += $(unserding_LIBS)
 quo_tws_LDADD =
+quo_tws_LDADD += $(unsermoddir)/libsvc-uterus.a
 quo_tws_LDADD += $(twsapi_LIBS)
 
 bin_PROGRAMS += pf-tws
