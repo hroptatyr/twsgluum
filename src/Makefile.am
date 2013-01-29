@@ -57,8 +57,8 @@ quo_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 quo_tws_LDFLAGS += $(libev_LIBS)
 quo_tws_LDFLAGS += $(expat_LIBS)
 quo_tws_LDFLAGS += $(unserding_LIBS)
-quo_tws_LDFLAGS += -L$(unsermoddir) -lsvc-uterus
 quo_tws_LDADD =
+quo_tws_LDADD += $(unsermoddir)/libsvc-uterus.a
 quo_tws_LDADD += $(twsapi_LIBS)
 
 bin_PROGRAMS += pf-tws
