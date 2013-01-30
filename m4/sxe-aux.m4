@@ -730,9 +730,15 @@ dnl Usage: PKG_CHECK_VAR_MSG(PKG, VARIABLE, MESSAGE, [ACTION_IF_FOUND], [ACTION_
 	AC_CACHE_CHECK([$3], [pkg_cv_$2], [
 		_PKG_CONFIG([$2], [variable=$2], [$1])
 	])
-	AS_VAR_COPY([$2], [pkg_cv_][$2])
+	[]$2[]="${pkg_cv_$2}"
 
-	AS_VAR_IF([$2], [""], [$5], [$4])dnl
+	if test "${pkg_cv_$2}" = ""; then
+		: not-found
+		$5
+	else
+		: found
+		$4
+	fi
 	AC_SUBST([$2])
 ])dnl PKG_CHECK_VAR_MSG
 
