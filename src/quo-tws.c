@@ -125,7 +125,7 @@ make_dccp(void)
 {
 	int s;
 
-	if ((s = socket(PF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+	if ((s = socket(AF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
 		return s;
 	}
 	/* mark the address as reusable */
@@ -146,7 +146,7 @@ make_tcp(void)
 {
 	int s;
 
-	if ((s = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	if ((s = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		return s;
 	}
 	/* reuse addr in case we quickly need to turn the server off and on */
