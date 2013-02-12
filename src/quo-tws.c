@@ -949,6 +949,19 @@ main(int argc, char *argv[])
 			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
+		if (s >= 0) {
+			make_brag_uri(&sa, sa_len);
+		}
+	}
+
+	{
+		struct sockaddr_in6 sa = {
+			.sin6_family = AF_INET6,
+			.sin6_addr = in6addr_any,
+			.sin6_port = 0,
+		};
+		socklen_t sa_len = sizeof(sa);
+		int s;
 
 		if (countof(dccp) < 2) {
 			;
