@@ -939,7 +939,7 @@ main(int argc, char *argv[])
 		} else if (sock_listener(s, &sa) < 0) {
 			/* grrr, whats wrong now */
 			close(s);
-			dccp[0].fd = -1;
+			s = dccp[0].fd = -1;
 		} else {
 			/* everything's brilliant */
 			dccp[0].data = ctx;
@@ -958,7 +958,7 @@ main(int argc, char *argv[])
 		} else if (sock_listener(s, &sa) < 0) {
 			/* bugger */
 			close(s);
-			dccp[1].fd = -1;
+			s = dccp[1].fd = -1;
 		} else {
 			/* yay */
 			dccp[1].data = ctx;
