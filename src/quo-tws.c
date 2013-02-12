@@ -163,7 +163,7 @@ sock_listener(int s, struct sockaddr_in6 *sa)
 		return s;
 	}
 
-	if (bind(s, (struct sockaddr*)&sa, sizeof(*sa)) < 0) {
+	if (bind(s, (struct sockaddr*)sa, sizeof(*sa)) < 0) {
 		return -1;
 	}
 
