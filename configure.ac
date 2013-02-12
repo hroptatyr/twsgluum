@@ -62,22 +62,6 @@ dnl -------------------------------------------------------------------------
 ## event lib
 SXE_CHECK_LIBEV
 
-## check for mxml
-PKG_CHECK_MODULES([mxml], [mxml >= 2.7],
-	[have_mxml="yes"], [have_mxml="no"])
-if test "${have_mxml}" = "yes"; then
-	## check for the header
-	SXE_DUMP_LIBS
-	CPPFLAGS="${CPPFLAGS} ${mxml_CFLAGS}"
-	AC_CHECK_HEADERS([mxml.h])
-	SXE_RESTORE_LIBS
-
-	if test "${ac_cv_header_mxml_h}" != "yes"; then
-		have_mxml="no"
-	fi
-fi
-AM_CONDITIONAL([HAVE_MXML], [test "${have_mxml}" = "yes"])
-
 ## check for expat
 SXE_CHECK_EXPAT
 
@@ -99,10 +83,10 @@ fi
 PKG_CHECK_MODULES([unserding], [unserding >= 0.3.0])
 PKG_CHECK_MODULES([unsermarkt], [unsermarkt >= 0.2.0], [
 	## check for unsermoddir variable
-	PKG_CHECK_VAR([unsermarkt], [unsermoddir], [unserding DSOs])
+	PKG_CHECK_VAR_MSG([unsermarkt], [unsermoddir], [unserding DSOs])
 
 	## check for unserincdir variable
-	PKG_CHECK_VAR([unsermarkt], [unserincdir], [unserding DSOs headers])
+	PKG_CHECK_VAR_MSG([unsermarkt], [unserincdir], [unserding DSOs headers])
 ])
 
 ## check for ute

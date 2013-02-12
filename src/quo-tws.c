@@ -125,7 +125,7 @@ make_dccp(void)
 {
 	int s;
 
-	if ((s = socket(PF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+	if ((s = socket(AF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
 		return s;
 	}
 	/* mark the address as reusable */
@@ -146,7 +146,7 @@ make_tcp(void)
 {
 	int s;
 
-	if ((s = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	if ((s = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		return s;
 	}
 	/* reuse addr in case we quickly need to turn the server off and on */
@@ -163,7 +163,7 @@ sock_listener(int s, struct sockaddr_in6 *sa)
 		return s;
 	}
 
-	if (bind(s, (struct sockaddr*)&sa, sizeof(*sa)) < 0) {
+	if (bind(s, (struct sockaddr*)sa, sizeof(*sa)) < 0) {
 		return -1;
 	}
 
@@ -939,7 +939,7 @@ main(int argc, char *argv[])
 		} else if (sock_listener(s, &sa) < 0) {
 			/* grrr, whats wrong now */
 			close(s);
-			dccp[0].fd = -1;
+			s = dccp[0].fd = -1;
 		} else {
 			/* everything's brilliant */
 			dccp[0].data = ctx;
@@ -949,6 +949,19 @@ main(int argc, char *argv[])
 			getsockname(s, (struct sockaddr*)&sa, &sa_len);
 		}
 
+		if (s >= 0) {
+			make_brag_uri(&sa, sa_len);
+		}
+	}
+
+	{
+		struct sockaddr_in6 sa = {
+			.sin6_family = AF_INET6,
+			.sin6_addr = in6addr_any,
+			.sin6_port = 0,
+		};
+		socklen_t sa_len = sizeof(sa);
+		int s;
 
 		if (countof(dccp) < 2) {
 			;
@@ -958,7 +971,7 @@ main(int argc, char *argv[])
 		} else if (sock_listener(s, &sa) < 0) {
 			/* bugger */
 			close(s);
-			dccp[1].fd = -1;
+			s = dccp[1].fd = -1;
 		} else {
 			/* yay */
 			dccp[1].data = ctx;

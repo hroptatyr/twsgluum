@@ -721,14 +721,25 @@ correctly, or fiddle with ]$1[_CFLAGS if its location is non-standard.
 		], [$5])
 ])dnl PKG_CHECK_MODULES_HEADERS
 
-AC_DEFUN([PKG_CHECK_VAR], [
-dnl Usage: PKG_CHECK_VAR([PKG], [VARIABLE], [MESSAGE])
+AC_DEFUN([PKG_CHECK_VAR_MSG], [
+dnl Usage: PKG_CHECK_VAR_MSG(PKG, VARIABLE, MESSAGE, [ACTION_IF_FOUND], [ACTION_IF_NOT_FOUND])
+
+	AC_REQUIRE([PKG_PROG_PKG_CONFIG])
+	AC_ARG_VAR([$2], [value of $2 for $1, overriding pkg-config])
 
 	AC_CACHE_CHECK([$3], [pkg_cv_$2], [
 		_PKG_CONFIG([$2], [variable=$2], [$1])
 	])
-	[]$2[]="${pkg_cv_[]$2[]}"
+	[]$2[]="${pkg_cv_$2}"
+
+	if test "${pkg_cv_$2}" = ""; then
+		: not-found
+		$5
+	else
+		: found
+		$4
+	fi
 	AC_SUBST([$2])
-])dnl PKG_CHECK_VAR
+])dnl PKG_CHECK_VAR_MSG
 
 dnl sxe-aux.m4 ends here
