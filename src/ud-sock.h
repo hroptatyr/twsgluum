@@ -164,6 +164,21 @@ setsock_rcvz(int s, int z)
 }
 
 static inline int
+getsock_proto(int s)
+{
+#if defined SO_PROTOCOL
+	int proto;
+	socklen_t zproto = sizeof(proto);
+	if (getsockopt(s, SOL_SOCKET, SO_PROTOCOL, &proto, &zproto) < 0) {
+		return -1;
+	}
+	return proto;
+#else  /* !SO_PROTOCOL */
+	return 0;
+#endif	/* SO_PROTOCOL */
+}
+
+static inline int
 tcp_cork(int s)
 {
 #if defined TCP_CORK && defined SOL_TCP

@@ -775,21 +775,23 @@ tws_state(tws_t tws)
 }
 
 
-int
+tws_oid_t
 tws_req_sdef(tws_t tws, const void *c)
 {
+	tws_oid_t oid;
+
 	if (UNLIKELY(!tws_ready_p(tws))) {
-		    return -1;
+		    return 0;
 	}
 
 	/* and now we just assume it works */
 	{
 		const IB::Contract *cont = (const IB::Contract*)c;
-		tws_oid_t oid = TWS_PRIV_WRP(tws)->next_oid++;
 
+		oid = TWS_PRIV_WRP(tws)->next_oid++;
 		TWS_PRIV_CLI(tws)->reqContractDetails(oid, *cont);
 	}
-	return __sock_ok_p(tws);
+	return oid;
 }
 
 /* pre requests */
