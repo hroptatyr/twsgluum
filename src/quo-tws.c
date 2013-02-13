@@ -777,7 +777,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		ev_io_shut(EV_A_ conns[next].io);
 	}
 
-	conns[next].sz[0] = sizeof(*conns[next].sa);
+	conns[next].sz[0] = sizeof(*conns[next].ss);
 	if ((s = accept(w->fd, conns[next].sa, conns[next].sz)) < 0) {
 		return;
 	}
