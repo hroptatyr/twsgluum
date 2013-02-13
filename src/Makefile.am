@@ -98,7 +98,7 @@ ox_tws_LDADD += $(twsapi_LIBS)
 
 ## our rule for gperf
 %.c: %.gperf
-	$(AM_V_GEN) $(GPERF) $< --output-file $@
+	$(AM_V_GEN) $(GPERF) -L ANSI-C $< --output-file $@
 
 # 
 # Help the developers get nice post-processed source files
