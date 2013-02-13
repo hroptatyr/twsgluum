@@ -483,17 +483,28 @@ __sub_sdef(tws_cont_t ins, void *clo)
  * those responses again */
 	tws_t tws = clo;
 	struct sub_s s;
+	int sreq;
+	int squo;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
-	s.idx = tws_sub_quo_cont(tws, ins);
+	if ((squo = tws_sub_quo_cont(tws, ins)) < 0) {
+		logger("cannot subscribe to quotes of %p", ins);
+		squo = 0;
+	} else if ((sreq = tws_req_sdef(tws, ins)) < 0) {
+		logger("cannot acquire secdefs of %p", ins);
+		sreq = 0;
+	}
+
+	/* fill in sub for our tracking */
+	s.idx = squo;
 	s.sdef = NULL;
+	s.sreq = sreq;
 	s.nick = strdup(tws_cont_nick(ins));
 	subq_add(((ctx_t)tws)->sq, s);
 
-	/* also request the real sdef data */
-	if (tws_req_sdef(tws, ins) < 0) {
-		logger("cannot acquire secdefs of %p", ins);
-	}
+	/* just to have some more juice to work with */
+	QUO_DEBUG("SUBC  NICK %s  SQUO %u  SREQ %u\n", s.nick, s.idx, s.sreq);
+
 	/* indicate that we don't need INS any longer */
 	return 1;
 }
