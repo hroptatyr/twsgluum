@@ -601,9 +601,10 @@ Content-Type: text/xml\r\n\
 
         /* obtain the address in human readable form */
         {
-		struct sockaddr_in6 *s6 = (void*)cdata->ss;
+		const struct sockaddr_in6 *s6 = (const void*)cdata->ss;
+		const struct in6_addr *ap = &s6->sin6_addr;
 
-		a = inet_ntop(s6->sin6_family, (void*)s6, buf, sizeof(buf));
+		a = inet_ntop(s6->sin6_family, ap, buf, sizeof(buf));
 		p = ntohs(s6->sin6_port);
         }
 
