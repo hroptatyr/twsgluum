@@ -607,7 +607,7 @@ Content-Type: text/xml\r\n\
 		p = ntohs(s6->sin6_port);
         }
 
-	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
+	logger("DCCP  %d  from [%s]:%d", w->fd, a, p);
 
 	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
 		goto clo;
@@ -769,7 +769,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		return;
 	}
 
-	QUO_DEBUG("DCCP %d\n", w->fd);
+	QUO_DEBUG("DCCP  %d\n", w->fd);
 
 	/* make way for this request */
 	if (conns[next].io->fd > 0) {
