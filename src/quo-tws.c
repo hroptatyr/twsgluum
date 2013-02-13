@@ -435,15 +435,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
 			/* there should be one on the queue */
-			if (UNLIKELY(s == NULL)) {
-				/* big bugger :|, unsub? */
-				struct sub_s t = {
-					.idx = idx,
-					.sdef = sdef,
-					.nick = strdup(nick),
-				};
-				subq_add(((ctx_t)tws)->sq, t);
-			} else {
+			if (LIKELY(s != NULL)) {
 				/* unsub that old guy, sub the new one */
 				QUO_DEBUG("USUB  %u rplcs %u\n", idx, s->idx);
 				tws_rem_quo(tws, s->idx);
@@ -458,6 +450,14 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 				;
 				/* also, no need to add him again */
 				;
+			} else {
+				/* big bugger :|, unsub? */
+				struct sub_s t = {
+					.idx = idx,
+					.sdef = sdef,
+					.nick = strdup(nick),
+				};
+				subq_add(((ctx_t)tws)->sq, t);
 			}
 		}
 		break;
