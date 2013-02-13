@@ -459,7 +459,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 				if (LIKELY(s->nick != NULL)) {
 					free(s->nick);
 				}
-				s->nick = nick;
+				s->nick = strdup(nick);
 				/* also, no need to add him again */
 				;
 			}
