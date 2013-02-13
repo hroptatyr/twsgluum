@@ -92,9 +92,6 @@ PKG_CHECK_MODULES([unsermarkt], [unsermarkt >= 0.2.0], [
 ## check for ute
 PKG_CHECK_MODULES_HEADERS([uterus], [uterus >= 0.2.3], [uterus.h uterus/uterus.h])
 
-dnl must come after all AC_LINK_IFELSE clauses
-## check for the ldflags
-SXE_CHECK_LDFLAGS
 
 dnl -------------------------------------------------------------------------
 dnl final output
