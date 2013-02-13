@@ -401,6 +401,7 @@ tws_cont_nick(tws_const_cont_t cont)
 	const char *sty = c->secType.c_str();
 	const char *xch = c->exchange.c_str();
 	const char *sym;
+	const char *ccy;
 
 	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
 		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
@@ -408,6 +409,9 @@ tws_cont_nick(tws_const_cont_t cont)
 		snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
 	} else if ((sym = c->localSymbol.c_str()) != NULL && sym[0]) {
 		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+	} else if ((sym = c->symbol.c_str()) != NULL && sym[0] &&
+		   (ccy = c->currency.c_str()) != NULL && ccy[0]) {
+		snprintf(nick, sizeof(nick), "%s/%s_%s_%s", sym, ccy, sty, xch);
 	} else {
 		/* we give up */
 		snprintf(nick, sizeof(nick), "p%p_%s_%s", c, sty, xch);
