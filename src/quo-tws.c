@@ -432,7 +432,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
 			const char *nick = tws_sdef_nick(sdef);
-			sub_t s = subq_find_nick(((ctx_t)tws)->sq, nick);
+			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
 			/* there should be one on the queue */
 			if (UNLIKELY(s == NULL)) {
