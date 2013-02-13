@@ -151,7 +151,7 @@ find_uidx(gq_ll_t lst, uint32_t uidx)
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		sub_qqq_t sp = (void*)ip;
 
-		if (sp->s.idx == uidx) {
+		if (sp->s.uidx == uidx) {
 			return sp;
 		}
 	}
