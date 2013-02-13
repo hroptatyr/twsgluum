@@ -52,6 +52,7 @@ typedef struct subq_s *subq_t;
 struct sub_s {
 	uint32_t idx;
 	uint32_t uidx;
+	uint32_t sreq;
 	uint32_t last_dsm;
 	tws_sdef_t sdef;
 	char *nick;
@@ -78,6 +79,10 @@ extern sub_t subq_find_uidx(subq_t sq, uint32_t idx);
 /**
  * Return the sub_t object on SQ that has nick NICK. */
 extern sub_t subq_find_nick(subq_t sq, const char *nick);
+
+/**
+ * Return the sub_t object on SQ that has sdef request id IDX. */
+extern sub_t subq_find_sreq(subq_t sq, uint32_t idx);
 
 /* flushing iterator */
 extern void subq_flush_cb(subq_t sq, subq_cb_f cb, void *clo);

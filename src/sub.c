@@ -159,6 +159,19 @@ find_uidx(gq_ll_t lst, uint32_t uidx)
 }
 
 static sub_qqq_t
+find_sreq(gq_ll_t lst, uint32_t idx)
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (sp->s.sreq == idx) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
+static sub_qqq_t
 find_nick(gq_ll_t lst, const char nick[1])
 {
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
@@ -236,6 +249,17 @@ subq_find_uidx(subq_t sq, uint32_t uidx)
 	sub_qqq_t sp;
 
 	if (LIKELY((sp = find_uidx(sq->sbuf, uidx)) != NULL)) {
+		return &sp->s;
+	}
+	return NULL;
+}
+
+sub_t
+subq_find_sreq(subq_t sq, uint32_t idx)
+{
+	sub_qqq_t sp;
+
+	if (LIKELY((sp = find_sreq(sq->sbuf, idx)) != NULL)) {
 		return &sp->s;
 	}
 	return NULL;
