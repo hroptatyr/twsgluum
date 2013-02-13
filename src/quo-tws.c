@@ -212,19 +212,18 @@ out:
 #define BRAG_INTV	(10)
 
 /* looks like dccp://host:port/secdef?idx=00000 */
-static char brag_uri[INET6_ADDRSTRLEN] = "dccp://";
-/* offset into brag_uris idx= field */
+static char brag_uri[INET6_ADDRSTRLEN];
+/* offset nto brag_uris idx= field */
 static size_t brag_uri_offset = 0;
 
 static int
-make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
+make_brag_uri(int sock, struct sockaddr_in6 *sa, socklen_t sz)
 {
 	struct utsname uts[1];
 	char dnsdom[64];
-	const size_t uri_host_offs = sizeof("dccp://");
-	char *curs = brag_uri + uri_host_offs - 1;
-	size_t rest = sizeof(brag_uri) - uri_host_offs;
-	int len;
+	char *curs;
+	size_t rest;
+	int proto;
 	uint16_t p;
 
 	if (uname(uts) < 0) {
@@ -233,17 +232,33 @@ make_brag_uri(struct sockaddr_in6 *sa, socklen_t sz)
 		return -1;
 	} else if (UNLIKELY(sz < sizeof(struct sockaddr_in6))) {
 		return -1;
+	} else if ((proto = getsock_proto(sock)) < 0) {
+		return -1;
+	}
+
+	switch (proto) {
+		static char http_designator[] = "http://";
+		static char dccp_designator[] = "dccp://";
+	case IPPROTO_DCCP:
+	case 0:
+	default:
+		memcpy(brag_uri, dccp_designator, sizeof(dccp_designator));
+		curs = brag_uri + sizeof(dccp_designator) - 1;
+		rest = sizeof(brag_uri) - sizeof(dccp_designator);
+		break;
+	case IPPROTO_TCP:
+		memcpy(brag_uri, http_designator, sizeof(http_designator));
+		curs = brag_uri + sizeof(http_designator) - 1;
+		rest = sizeof(brag_uri) - sizeof(http_designator);
+		break;
 	}
 
 	p = ntohs(sa->sin6_port);
-	len = snprintf(
+	curs += snprintf(
 		curs, rest, "%s.%s:%hu/secdef?idx=",
 		uts->nodename, dnsdom, p);
 
-	if (len > 0) {
-		brag_uri_offset = uri_host_offs + len - 1;
-	}
-
+	brag_uri_offset = curs - brag_uri;
 	QUO_DEBUG("ADVN  %s\n", brag_uri);
 	return 0;
 }
@@ -417,14 +432,15 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
 			const char *nick = tws_sdef_nick(sdef);
-			sub_t s = subq_find_nick(((ctx_t)tws)->sq, nick);
+			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
 			/* there should be one on the queue */
-			if (UNLIKELY(s == NULL)) {
+			if (UNLIKELY(s == NULL || s->sdef != NULL)) {
 				/* big bugger :|, unsub? */
 				struct sub_s t = {
 					.idx = idx,
 					.sdef = sdef,
+					.sreq = clo.oid,
 					.nick = strdup(nick),
 				};
 				subq_add(((ctx_t)tws)->sq, t);
@@ -470,15 +486,20 @@ __sub_sdef(tws_cont_t ins, void *clo)
 	struct sub_s s;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
-	s.idx = tws_sub_quo_cont(tws, ins);
+	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
+		logger("cannot subscribe to quotes of %p", ins);
+	} else if (!(s.sreq = tws_req_sdef(tws, ins))) {
+		logger("cannot acquire secdefs of %p", ins);
+	}
+
+	/* fill in sub for our tracking */
 	s.sdef = NULL;
 	s.nick = strdup(tws_cont_nick(ins));
 	subq_add(((ctx_t)tws)->sq, s);
 
-	/* also request the real sdef data */
-	if (tws_req_sdef(tws, ins) < 0) {
-		logger("cannot acquire secdefs of %p", ins);
-	}
+	/* just to have some more juice to work with */
+	QUO_DEBUG("SUBC  NICK %s  SQUO %u  SREQ %u\n", s.nick, s.idx, s.sreq);
+
 	/* indicate that we don't need INS any longer */
 	return 1;
 }
@@ -580,13 +601,14 @@ Content-Type: text/xml\r\n\
 
         /* obtain the address in human readable form */
         {
-		struct sockaddr_in6 *s6 = (void*)cdata->ss;
+		const struct sockaddr_in6 *s6 = (const void*)cdata->ss;
+		const struct in6_addr *ap = &s6->sin6_addr;
 
-		a = inet_ntop(s6->sin6_family, (void*)s6, buf, sizeof(buf));
+		a = inet_ntop(s6->sin6_family, ap, buf, sizeof(buf));
 		p = ntohs(s6->sin6_port);
         }
 
-	logger("DCCP %d  from [%s]:%d", w->fd, a, p);
+	logger("DCCP  %d  from [%s]:%d", w->fd, a, p);
 
 	if ((nrd = recv(w->fd, buf, sizeof(buf), 0)) <= 0) {
 		goto clo;
@@ -748,14 +770,14 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		return;
 	}
 
-	QUO_DEBUG("DCCP %d\n", w->fd);
+	QUO_DEBUG("DCCP  %d\n", w->fd);
 
 	/* make way for this request */
 	if (conns[next].io->fd > 0) {
 		ev_io_shut(EV_A_ conns[next].io);
 	}
 
-	conns[next].sz[0] = sizeof(*conns[next].sa);
+	conns[next].sz[0] = sizeof(*conns[next].ss);
 	if ((s = accept(w->fd, conns[next].sa, conns[next].sz)) < 0) {
 		return;
 	}
@@ -950,7 +972,7 @@ main(int argc, char *argv[])
 		}
 
 		if (s >= 0) {
-			make_brag_uri(&sa, sa_len);
+			make_brag_uri(s, &sa, sa_len);
 		}
 	}
 
@@ -982,7 +1004,7 @@ main(int argc, char *argv[])
 		}
 
 		if (s >= 0) {
-			make_brag_uri(&sa, sa_len);
+			make_brag_uri(s, &sa, sa_len);
 		}
 	}
 

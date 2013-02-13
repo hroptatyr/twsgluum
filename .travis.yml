@@ -1,0 +1,53 @@
+language: c
+
+compiler:
+  - gcc
+  - clang
+
+env:
+  matrix:
+    - build_git_twsapi="no"
+    - build_git_twsapi="yes"
+
+before_install:
+  - sudo add-apt-repository ppa:hroptatyr/ppa -y
+  - sudo apt-get -qq update
+
+install:
+  - sudo apt-get install -qq gengetopt
+  - sudo apt-get install -qq help2man
+  - sudo apt-get install -qq uterus
+  - sudo apt-get install -qq libfixc
+  - sudo apt-get install -qq unserding
+  - sudo apt-get install -qq unsermarkt
+  - if test "${build_git_twsapi}" = "yes"; then
+      git clone --quiet --depth=100 git://github.com/rudimeier/twsapi.git ~/builds/twsapi
+      && pushd ~/builds/twsapi
+      && autoreconf -vfi
+      && ./configure
+      && make && sudo make install
+      && popd
+      ;
+    else
+      sudo apt-get install -qq twsapi
+      ;
+    fi
+
+before_script:
+  - autoreconf -vfi
+
+script:
+  - mkdir \=build
+  - cd \=build
+  - ../configure
+  - make clean all distcheck
+
+## whitelist
+branches:
+  only:
+    - master
+    - next
+
+notifications:
+  email:
+    - devel@fresse.org

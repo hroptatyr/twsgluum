@@ -151,7 +151,20 @@ find_uidx(gq_ll_t lst, uint32_t uidx)
 	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
 		sub_qqq_t sp = (void*)ip;
 
-		if (sp->s.idx == uidx) {
+		if (sp->s.uidx == uidx) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
+static sub_qqq_t
+find_sreq(gq_ll_t lst, uint32_t idx)
+{
+	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+		sub_qqq_t sp = (void*)ip;
+
+		if (sp->s.sreq == idx) {
 			return sp;
 		}
 	}
@@ -215,7 +228,7 @@ subq_add(subq_t sq, struct sub_s s)
 	si->s = s;
 	/* and push it */
 	gq_push_tail(sq->sbuf, (gq_item_t)si);
-	SUB_DEBUG("PUSH  SQ  %p\n", si);
+	SUB_DEBUG("PUSH  SQ  %p %u\n", si, s.uidx);
 	return;
 }
 
@@ -236,6 +249,17 @@ subq_find_uidx(subq_t sq, uint32_t uidx)
 	sub_qqq_t sp;
 
 	if (LIKELY((sp = find_uidx(sq->sbuf, uidx)) != NULL)) {
+		return &sp->s;
+	}
+	return NULL;
+}
+
+sub_t
+subq_find_sreq(subq_t sq, uint32_t idx)
+{
+	sub_qqq_t sp;
+
+	if (LIKELY((sp = find_sreq(sq->sbuf, idx)) != NULL)) {
 		return &sp->s;
 	}
 	return NULL;
