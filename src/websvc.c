@@ -63,7 +63,7 @@ websvc_from_request(struct websvc_s *tgt, const char *req, size_t UNUSED(len))
 {
 	static const char get_slash[] = "GET /";
 	const char *p;
-	websvc_f_t res;
+	websvc_f_t res = WEBSVC_F_UNK;
 	char *eo;
 
 	if ((eo = strchr(req, '\n')) == NULL) {
