@@ -435,7 +435,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
 			/* there should be one on the queue */
-			if (UNLIKELY(s == NULL)) {
+			if (UNLIKELY(s == NULL || s->sdef != NULL)) {
 				/* big bugger :|, unsub? */
 				struct sub_s t = {
 					.idx = idx,
