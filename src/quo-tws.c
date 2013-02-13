@@ -455,8 +455,11 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 					tws_free_sdef(s->sdef);
 				}
 				s->sdef = sdef;
-				/* nicks are the same so don't bother */
-				;
+				/* chuck out the old nick */
+				if (LIKELY(s->nick != NULL)) {
+					free(s->nick);
+				}
+				s->nick = strdup(nick);
 				/* also, no need to add him again */
 				;
 			}
