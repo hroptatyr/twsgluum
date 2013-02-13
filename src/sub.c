@@ -228,7 +228,7 @@ subq_add(subq_t sq, struct sub_s s)
 	si->s = s;
 	/* and push it */
 	gq_push_tail(sq->sbuf, (gq_item_t)si);
-	SUB_DEBUG("PUSH  SQ  %p\n", si);
+	SUB_DEBUG("PUSH  SQ  %p %u\n", si, s.uidx);
 	return;
 }
 
