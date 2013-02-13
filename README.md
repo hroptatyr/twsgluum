@@ -23,8 +23,7 @@ Example:
 ```
   you can subscribe to live quotes via:
 
-    quo-tws --tws-host localhost --tws-port 7474 --tws-client-id 12247 \
-      --beef 12247 test.xml
+    quo-tws --tws-host localhost --tws-port 7474 --tws-client-id 12247 --beef 12247 test.xml
 
   and have your `unsermon` listen to beef channel 12247 with the
   `svc-uterus` module to decode the tick data.
