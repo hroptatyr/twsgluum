@@ -16,6 +16,7 @@ before_install:
 install:
   - sudo apt-get install -qq gengetopt
   - sudo apt-get install -qq help2man
+  - sudo apt-get install -qq libev-dev
   - sudo apt-get install -qq uterus
   - sudo apt-get install -qq libfixc
   - sudo apt-get install -qq unserding
