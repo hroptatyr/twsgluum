@@ -483,22 +483,16 @@ __sub_sdef(tws_cont_t ins, void *clo)
  * those responses again */
 	tws_t tws = clo;
 	struct sub_s s;
-	int sreq;
-	int squo;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
-	if ((squo = tws_sub_quo_cont(tws, ins)) < 0) {
+	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
 		logger("cannot subscribe to quotes of %p", ins);
-		squo = 0;
-	} else if ((sreq = tws_req_sdef(tws, ins)) < 0) {
+	} else if (!(s.sreq = tws_req_sdef(tws, ins))) {
 		logger("cannot acquire secdefs of %p", ins);
-		sreq = 0;
 	}
 
 	/* fill in sub for our tracking */
-	s.idx = squo;
 	s.sdef = NULL;
-	s.sreq = sreq;
 	s.nick = strdup(tws_cont_nick(ins));
 	subq_add(((ctx_t)tws)->sq, s);
 
