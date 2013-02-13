@@ -440,6 +440,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 				struct sub_s t = {
 					.idx = idx,
 					.sdef = sdef,
+					.sreq = clo.oid,
 					.nick = strdup(nick),
 				};
 				subq_add(((ctx_t)tws)->sq, t);
