@@ -2,10 +2,12 @@ LANG = C
 LC_ALL = C
 
 ACLOCAL_AMFLAGS = -I m4
+EXTRA_DIST =
 
 SUBDIRS = src
 
-EXTRA_DIST = .version git-version-gen
+EXTRA_DIST += .version git-version-gen
+EXTRA_DIST += README.md
 
 # Version string management.  There are two files to be aware of:
 # .tarball-version - present only in a distribution tarball, and not in
