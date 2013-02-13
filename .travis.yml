@@ -30,8 +30,10 @@ install:
       git clone --quiet --depth=100 -b next git://github.com/rudimeier/twsapi.git ~/builds/twsapi
       && pushd ~/builds/twsapi
       && autoreconf -vfi
-      && ./configure
-      && make && sudo make install
+      && ./configure --prefix=/usr
+      && make
+      && sudo make install
+      && sudo ldconfig
       && popd
       ;
     else
