@@ -45,7 +45,7 @@ before_script:
 script:
   - mkdir \=build
   - cd \=build
-  - ../configure
+  - ../configure || (cat config.log; /bin/false)
   - make clean all distcheck
 
 ## whitelist
