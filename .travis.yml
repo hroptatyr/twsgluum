@@ -9,6 +9,11 @@ env:
     - build_git_twsapi="no"
     - build_git_twsapi="yes"
 
+matrix:
+  allow_failures:
+    ## as long as handshake features aren't in twsapi
+    - build_git_twsapi="no"
+
 before_install:
   - sudo add-apt-repository ppa:hroptatyr/ppa -y
   - sudo apt-get -qq update
