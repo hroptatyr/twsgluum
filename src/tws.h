@@ -253,7 +253,6 @@ struct tws_trd_open_ord_clo_s {
 /* connection guts */
 extern int init_tws(tws_t, int sock, int client);
 extern int fini_tws(tws_t);
-extern void rset_tws(tws_t);
 
 extern int tws_recv(tws_t);
 extern int tws_send(tws_t);

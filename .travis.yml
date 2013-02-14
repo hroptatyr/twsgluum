@@ -9,6 +9,11 @@ env:
     - build_git_twsapi="no"
     - build_git_twsapi="yes"
 
+matrix:
+  allow_failures:
+    ## as long as handshake features aren't in twsapi
+    - build_git_twsapi="no"
+
 before_install:
   - sudo add-apt-repository ppa:hroptatyr/ppa -y
   - sudo apt-get -qq update
@@ -17,16 +22,19 @@ install:
   - sudo apt-get install -qq gengetopt
   - sudo apt-get install -qq help2man
   - sudo apt-get install -qq libev-dev
+  - sudo apt-get install -qq gperf
   - sudo apt-get install -qq uterus
   - sudo apt-get install -qq libfixc
   - sudo apt-get install -qq unserding
   - sudo apt-get install -qq unsermarkt
   - if test "${build_git_twsapi}" = "yes"; then
-      git clone --quiet --depth=100 git://github.com/rudimeier/twsapi.git ~/builds/twsapi
+      git clone --quiet --depth=100 -b next git://github.com/hroptatyr/twsapi.git ~/builds/twsapi
       && pushd ~/builds/twsapi
       && autoreconf -vfi
-      && ./configure
-      && make && sudo make install
+      && ./configure --prefix=/usr --enable-shared
+      && make
+      && sudo make install
+      && sudo ldconfig
       && popd
       ;
     else
@@ -40,8 +48,8 @@ before_script:
 script:
   - mkdir \=build
   - cd \=build
-  - ../configure
-  - make clean all distcheck
+  - ../configure || (cat config.log; /bin/false)
+  - make clean all distcheck V=1
 
 ## whitelist
 branches:
