@@ -31,7 +31,7 @@ install:
       git clone --quiet --depth=100 -b next git://github.com/hroptatyr/twsapi.git ~/builds/twsapi
       && pushd ~/builds/twsapi
       && autoreconf -vfi
-      && ./configure --prefix=/usr
+      && ./configure --prefix=/usr --enable-shared
       && make
       && sudo make install
       && sudo ldconfig
