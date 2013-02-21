@@ -59,6 +59,7 @@ quo_tws_LDFLAGS += $(expat_LIBS)
 quo_tws_LDFLAGS += $(unserding_LIBS)
 quo_tws_LDADD =
 quo_tws_LDADD += $(unsermoddir)/libsvc-uterus.a
+quo_tws_LDADD += $(quo_tws_LDFLAGS)
 
 bin_PROGRAMS += pf-tws
 pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
@@ -72,7 +73,7 @@ pf_tws_CPPFLAGS += $(libev_CFLAGS)
 pf_tws_LDFLAGS = $(AM_LDFLAGS)
 pf_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 pf_tws_LDFLAGS += $(libev_LIBS)
-pf_tws_LDADD =
+pf_tws_LDADD = $(pf_tws_LDFLAGS)
 
 bin_PROGRAMS += ox-tws
 ox_tws_SOURCES = ox-tws.c ox-tws-clo.ggo ox-tws.h
@@ -86,7 +87,7 @@ ox_tws_CPPFLAGS += $(libev_CFLAGS)
 ox_tws_LDFLAGS = $(AM_LDFLAGS)
 ox_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 ox_tws_LDFLAGS += $(libev_LIBS)
-ox_tws_LDADD =
+ox_tws_LDADD = $(ox_tws_LDFLAGS)
 
 
 ## our rule for gengetopt
