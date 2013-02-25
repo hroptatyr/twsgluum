@@ -39,5 +39,6 @@ secType, TX_ATTR_SECTYPE
 symbol, TX_ATTR_SYMBOL
 tif, TX_ATTR_TIF
 totalQuantity, TX_ATTR_TOTALQUANTITY
+tws, TX_ATTR_TWS
 type, TX_ATTR_TYPE
 xmlns,	TX_ATTR_XMLNS

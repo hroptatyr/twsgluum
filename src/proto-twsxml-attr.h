@@ -27,6 +27,7 @@ typedef enum {
 
 	/* stuff that we invented */
 	TX_ATTR_NICK,
+	TX_ATTR_TWS,
 
 } tws_xml_aid_t;
 
