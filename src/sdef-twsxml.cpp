@@ -76,6 +76,12 @@
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 #endif	/* HAVE_GPERF */
 
+struct req_s {
+	const char *tws;
+	tws_cont_t c;
+	const char *nick;
+};
+
 
 static tws_xml_aid_t
 __tx_aid_from_attr_l(const char *attr, size_t len)
@@ -165,10 +171,35 @@ proc_REQCONTRACT_attr(
 	case TX_ATTR_EXCHANGE:
 		c->exchange = std::string(val);
 		break;
-	/* this one's off standard*/
+	default:
+		break;
+	}
+	return;
+}
+
+static void
+proc_QMETA_attr(
+	struct tws_sreq_s *sr, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
+{
+	switch ((tws_xml_aid_t)aid) {
 	case TX_ATTR_NICK:
 		/* we use the comboLegsDescrip field for our nicks */
-		c->comboLegsDescrip = std::string(val);
+		sr->nick = strdup(val);
+		break;
+	default:
+		break;
+	}
+	return;
+}
+
+static void
+proc_RMETA_attr(
+	struct tws_sreq_s *sr, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
+{
+
+	switch ((tws_xml_aid_t)aid) {
+	case TX_ATTR_TWS:
+		sr->tws = strdup(val);
 		break;
 	default:
 		break;
@@ -208,8 +239,6 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 	/* all the stuff that needs a new sax handler */
 	switch (tid) {
 	case TX_TAG_TWSXML:
-		ptx_init(ctx);
-
 		if (UNLIKELY(attr == NULL)) {
 			break;
 		}
@@ -219,22 +248,44 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 		}
 		break;
 
-	case TX_TAG_REQUEST: {
-		tx_tid_t x = {tid};
-		push_state(ctx, TX_NS_TWSXML_0_1, x, NULL);
+	case TX_TAG_REQUEST:
+		if (LIKELY(ctx->next != NULL)) {
+			void *sr = calloc(1, sizeof(*ctx->next));
+			ctx->next->next = (tws_sreq_t)sr;
+			ctx->next = (struct tws_sreq_s*)sr;
+		} else {
+			void *sr = calloc(1, sizeof(*ctx->next));
+			ctx->next = (struct tws_sreq_s*)sr;
+			ctx->sreq = (tws_sreq_t)sr;
+		}
 		break;
-	}
+
+	case TX_TAG_RMETA:
+		/* get all them metas */
+		for (const char **ap = attr; ap && *ap; ap += 2) {
+			const tws_xml_aid_t aid = check_tx_attr(ctx, ap[0]);
+
+			proc_RMETA_attr(
+				ctx->next, TX_NS_TWSXML_0_1, aid, ap[1]);
+		}
+		break;
+
+	case TX_TAG_QMETA:
+		/* get all them metas */
+		for (const char **ap = attr; ap && *ap; ap += 2) {
+			const tws_xml_aid_t aid = check_tx_attr(ctx, ap[0]);
+
+			proc_QMETA_attr(
+				ctx->next, TX_NS_TWSXML_0_1, aid, ap[1]);
+		}
+		break;
 
 	case TX_TAG_QUERY:
-	case TX_TAG_RESPONSE: {
-		tx_tid_t x = {tid};
-		push_state(ctx, TX_NS_TWSXML_0_1, x, NULL);
+	case TX_TAG_RESPONSE:
 		break;
-	}
 
 	case TX_TAG_REQCONTRACT: {
 		tws_cont_t ins = (tws_cont_t)new IB::Contract;
-		tx_tid_t x = {tid};
 
 		/* get all them contract specs */
 		for (const char **ap = attr; ap && *ap; ap += 2) {
@@ -243,13 +294,15 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 			proc_REQCONTRACT_attr(
 				ins, TX_NS_TWSXML_0_1, aid, ap[1]);
 		}
-		push_state(ctx, TX_NS_TWSXML_0_1, x, ins);
+		if (UNLIKELY(ctx->next->c != NULL)) {
+			delete (IB::Contract*)ctx->next->c;
+		}
+		ctx->next->c = ins;
 		break;
 	}
 
 	case TX_TAG_COMBOLEGS: {
-		IB::Contract *ins = (IB::Contract*)get_state_object(ctx);
-		tx_tid_t x = {tid};
+		IB::Contract *ins = (IB::Contract*)ctx->next->c;
 
 		if (ins->comboLegs == NULL) {
 			ins->comboLegs = new IB::Contract::ComboLegList();
@@ -257,13 +310,12 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 
 		/* combolegs should have no attrs, aye? */
 		TX_DEBUG("got instrument %p\n", ins);
-		push_state(ctx, TX_NS_TWSXML_0_1, x, ins->comboLegs);
 		break;
 	}
 
 	case TX_TAG_COMBOLEG: {
-		IB::Contract::ComboLegList* cmb =
-			(IB::Contract::ComboLegList*)get_state_object(ctx);
+		IB::Contract *ins = (IB::Contract*)ctx->next->c;
+		IB::Contract::ComboLegList* cmb = ins->comboLegs;
 		IB::ComboLeg *leg = new IB::ComboLeg;
 
 		/* get all them contract specs */
@@ -298,33 +350,12 @@ sax_eo_TWSXML_elt(__ctx_t ctx, const char *elem)
 	case TX_TAG_REQUEST:
 	case TX_TAG_QUERY:
 	case TX_TAG_RESPONSE:
-		(void)pop_state(ctx);
 		break;
 
 		/* non top-levels without children */
-	case TX_TAG_REQCONTRACT: {
-		tws_cont_t ins = pop_state(ctx);
-
-		if (UNLIKELY(ins == NULL)) {
-			TX_DEBUG("internal parser error, cont is NULL\n");
-			break;
-		} else if (ctx->cont_cb == NULL ||
-			   ctx->cont_cb(ins, ctx->cbclo)) {
-			delete (IB::Contract*)ins;
-		}
+	case TX_TAG_REQCONTRACT:
+	case TX_TAG_COMBOLEGS:
 		break;
-	}
-
-	case TX_TAG_COMBOLEGS: {
-		IB::Contract::ComboLegList *cmb =
-			(IB::Contract::ComboLegList*)pop_state(ctx);
-
-		if (UNLIKELY(cmb == NULL)) {
-			TX_DEBUG("no legs in a combo\n");
-			break;
-		}
-		break;
-	}
 
 	case TX_TAG_COMBOLEG: {
 		TX_DEBUG("/leg\n");
