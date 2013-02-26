@@ -101,4 +101,14 @@
 # define PROT_MEM	(PROT_READ | PROT_WRITE)
 #endif	/* PROT_MEM */
 
+static inline __attribute__((pure)) void*
+unconst(const void *p)
+{
+	union {
+		const void *c;
+		void *p;
+	} x = {p};
+	return x.p;
+}
+
 #endif	/* INCLUDED_nifty_h_ */

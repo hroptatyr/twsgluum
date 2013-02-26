@@ -52,14 +52,20 @@ typedef const void *tws_const_cont_t;
 typedef void *tws_sdef_t;
 typedef const void *tws_const_sdef_t;
 
+typedef const struct tws_sreq_s *tws_sreq_t;
+struct tws_sreq_s {
+	tws_sreq_t next;
+
+	tws_cont_t c;
+	const char *tws;
+	const char *nick;
+};
+
 /**
  * Serialise SDEF into BUF of size BSZ, return the number of bytes written. */
 extern ssize_t tws_ser_sdef(char *restrict buf, size_t bsz, tws_const_sdef_t);
 
-extern int
-tws_deser_cont(
-	const char *xml, size_t len,
-	int(*cb)(tws_cont_t, void *clo), void *clo);
+extern tws_sreq_t tws_deser_sreq(const char *xml, size_t len);
 
 /**
  * Return a copy of CONT. */
@@ -88,6 +94,10 @@ extern const char *tws_cont_nick(tws_const_cont_t);
 /**
  * Return a nick name for given secdef. */
 extern const char *tws_sdef_nick(tws_const_sdef_t);
+
+/**
+ * Free resources associated with SREQ. */
+extern void tws_free_sreq(tws_sreq_t);
 
 #if defined __cplusplus
 }

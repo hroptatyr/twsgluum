@@ -63,7 +63,6 @@ AC_DEFUN([SXE_CHECK_TWSAPI_HANDSHAKE], [
 			IB::EPosixClientSocket *cli = NULL;
 			cli->prepareHandshake(-1, 0);
 			cli->handshake();
-			cli->wavegoodbye();
 		]])], [
 			sxe_cv_feat_twsapi_handshake="yes"
 		], [

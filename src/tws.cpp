@@ -643,6 +643,8 @@ __wrapper::receiveFA(IB::faDataType, const IB::IBString&)
 }
 
 
+#define wavegoodbye	eDisconnect
+
 static void
 rset_tws(tws_t tws)
 {
@@ -660,7 +662,8 @@ tws_start(tws_t tws)
 static int
 tws_stop(tws_t tws)
 {
-	return TWS_PRIV_CLI(tws)->wavegoodbye();
+	TWS_PRIV_CLI(tws)->wavegoodbye();
+	return 0;
 }
 
 static inline int
