@@ -305,10 +305,15 @@ static int
 brag(ctx_t ctx, sub_t sub)
 {
 	struct um_qmeta_s brg;
-	const char *sym = sub->nick;
-	size_t syz = strlen(sym);
 	size_t brag_urz = brag_uri_offset;
+	const char *sym;
+	size_t syz;
 
+	if (LIKELY((sym = sub->nick) != NULL)) {
+		syz = strlen(sym);
+	} else {
+		syz = 0UL;
+	}
 	/* put stuff in our uri */
 	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
@@ -493,13 +498,11 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 					tws_free_sdef(s->sdef);
 				}
 				s->sdef = sdef;
-				/* chuck out the old nick */
-				if (LIKELY(s->nick != NULL)) {
+				/* check if nick assignment could be good */
+				if (s->nick != NULL && s->last_dsm == 0) {
 					free(s->nick);
+					s->nick = strdup(nick);
 				}
-				s->nick = strdup(nick);
-				/* also, no need to add him again */
-				;
 			}
 		}
 		break;
@@ -535,7 +538,17 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
 
 	/* fill in sub for our tracking */
 	s.sdef = NULL;
-	s.nick = strdup(sr->nick);
+	{
+		const char *nick;
+
+		if ((nick = sr->nick) != NULL) {
+			s.last_dsm = 1/*user nick*/;
+		} else {
+			nick = tws_cont_nick(ins);
+			s.last_dsm = 0/*auto nick*/;
+		}
+		s.nick = strdup(nick);
+	}
 	subq_add(((ctx_t)tws)->sq, s);
 
 	/* just to have some more juice to work with */
@@ -577,8 +590,16 @@ init_subs(tws_t tws, const char *file)
 static void
 sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
 {
-	tws_free_sdef(s.sdef);
-	free(s.nick);
+	if (UNLIKELY(s.sdef == NULL)) {
+		QUO_DEBUG("SDEF  NO GIVEE :O\n");
+	} else {
+		tws_free_sdef(s.sdef);
+	}
+	if (UNLIKELY(s.nick == NULL)) {
+		QUO_DEBUG("NICK  NO GIVEE :O\n");
+	} else {
+		free(s.nick);
+	}
 	return;
 }
 
