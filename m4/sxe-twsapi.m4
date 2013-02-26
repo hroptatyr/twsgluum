@@ -86,7 +86,7 @@ AC_DEFUN([SXE_CHECK_TWSAPI_HANDSHAKE], [
 	if test "${sxe_cv_feat_twsapi_handshake}" = "yes"; then
 		:
 		$1
-		if test "${sxe_cv_feat_twsapi_wavegoodbye}" = "yes"; then
+		if test "${sxe_cv_feat_twsapi_wavegoodbye}" = "no"; then
 			AC_DEFINE_UNQUOTED([wavegoodbye], [eDisconnect],
 				[how to mimic wavegoodbye()])
 		fi
