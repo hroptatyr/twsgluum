@@ -68,17 +68,6 @@ AC_DEFUN([SXE_CHECK_TWSAPI_HANDSHAKE], [
 		], [
 			sxe_cv_feat_twsapi_handshake="no"
 		])
-
-		AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <twsapi/EPosixClientSocket.h>
-]], [[
-			IB::EPosixClientSocket *cli = NULL;
-			cli->wavegoodbye();
-		]])], [
-			sxe_cv_feat_twsapi_wavegoodbye="yes"
-		], [
-			sxe_cv_feat_twsapi_wavegoodbye="no"
-		])
 		SXE_RESTORE_LIBS
 		AC_LANG([C])
 	])
@@ -86,10 +75,6 @@ AC_DEFUN([SXE_CHECK_TWSAPI_HANDSHAKE], [
 	if test "${sxe_cv_feat_twsapi_handshake}" = "yes"; then
 		:
 		$1
-		if test "${sxe_cv_feat_twsapi_wavegoodbye}" = "no"; then
-			AC_DEFINE_UNQUOTED([wavegoodbye], [eDisconnect],
-				[how to mimic wavegoodbye()])
-		fi
 	else
 		:
 		$2
