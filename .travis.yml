@@ -57,6 +57,7 @@ branches:
   only:
     - master
     - next
+    - travis
 
 notifications:
   email:
