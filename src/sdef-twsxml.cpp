@@ -307,9 +307,6 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 		if (ins->comboLegs == NULL) {
 			ins->comboLegs = new IB::Contract::ComboLegList();
 		}
-
-		/* combolegs should have no attrs, aye? */
-		TX_DEBUG("got instrument %p\n", ins);
 		break;
 	}
 
@@ -348,6 +345,8 @@ sax_eo_TWSXML_elt(__ctx_t ctx, const char *elem)
 		break;
 
 	case TX_TAG_REQUEST:
+		TX_DEBUG("CREQ  %p  %s", ctx->next->c, ctx->next->nick);
+		break;
 	case TX_TAG_QUERY:
 	case TX_TAG_RESPONSE:
 		break;
@@ -355,12 +354,8 @@ sax_eo_TWSXML_elt(__ctx_t ctx, const char *elem)
 		/* non top-levels without children */
 	case TX_TAG_REQCONTRACT:
 	case TX_TAG_COMBOLEGS:
+	case TX_TAG_COMBOLEG:
 		break;
-
-	case TX_TAG_COMBOLEG: {
-		TX_DEBUG("/leg\n");
-		break;
-	}
 
 	default:
 		break;
