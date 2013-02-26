@@ -305,10 +305,15 @@ static int
 brag(ctx_t ctx, sub_t sub)
 {
 	struct um_qmeta_s brg;
-	const char *sym = sub->nick;
-	size_t syz = strlen(sym);
 	size_t brag_urz = brag_uri_offset;
+	const char *sym;
+	size_t syz;
 
+	if (LIKELY((sym = sub->nick) != NULL)) {
+		syz = strlen(sym);
+	} else {
+		syz = 0UL;
+	}
 	/* put stuff in our uri */
 	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
