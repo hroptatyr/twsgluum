@@ -99,11 +99,18 @@
 
 typedef struct ctx_s *ctx_t;
 
+struct tws_uri_s {
+	char *str;
+	int cli;
+	const char *h;
+	const char *p;
+};
+
 struct ctx_s {
 	struct tws_s tws[1];
 
-	/* static context */
-	const char *uri;
+	/* parsed up uri string */
+	struct tws_uri_s uri[1];
 
 	unsigned int nsubf;
 	const char *const *subf;
@@ -169,13 +176,10 @@ sock_listener(int s, struct sockaddr_in6 *sa)
 }
 
 static int
-tws_sock(const char *host)
+tws_sock(const struct tws_uri_s uri[static 1])
 {
 	struct addrinfo *aires;
 	struct addrinfo hints = {0};
-	char *hstr;
-	char *h;
-	char *p;
 	int s = -1;
 
 	hints.ai_family = AF_UNSPEC;
@@ -189,24 +193,7 @@ tws_sock(const char *host)
 #endif	/* AI_V4MAPPED */
 	hints.ai_protocol = 0;
 
-	/* firstly so we operate on a copy of HOST */
-	hstr = strdup(host);
-
-	/* fix up host */
-	if ((h = strchr(hstr, '@')) == NULL) {
-		h = hstr;
-	} else {
-		*h++ = '\0';
-	}
-
-	/* port number as string */
-	if ((p = strchr(h, ':')) == NULL) {
-		p = "7474";
-	} else {
-		*p++ = '\0';
-	}
-
-	if (getaddrinfo(h, p, &hints, &aires) < 0) {
+	if (getaddrinfo(uri->h, uri->p, &hints, &aires) < 0) {
 		goto out;
 	}
 	/* now try them all */
@@ -217,9 +204,45 @@ tws_sock(const char *host)
 	     close(s), s = -1, ai = ai->ai_next);
 
 out:
-	free(hstr);
 	freeaddrinfo(aires);
 	return s;
+}
+
+static struct tws_uri_s
+make_uri(const char *uri)
+{
+	struct tws_uri_s res;
+	char *h;
+	char *p;
+
+	/* firstly so we operate on a copy of URI */
+	res.str = strdup(uri);
+
+	/* fix up host */
+	if ((h = strchr(res.str, '@')) == NULL) {
+		res.h = res.str;
+		res.cli = 0;
+	} else {
+		*h++ = '\0';
+		res.h = h;
+		res.cli = atoi(res.str);
+	}
+
+	/* port number as string */
+	if ((p = strchr(res.h, ':')) == NULL) {
+		res.p = "7474";
+	} else {
+		*p++ = '\0';
+		res.p = p;
+	}
+	return res;
+}
+
+static void
+free_uri(struct tws_uri_s uri[static 1])
+{
+	free(uri->str);
+	return;
 }
 
 
@@ -700,6 +723,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	static ev_io twsc[1];
 	ctx_t ctx;
 	int s;
+	int cli;
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
@@ -721,8 +745,10 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	int client = time(NULL);
-	if (UNLIKELY(init_tws(ctx->tws, s, client) < 0)) {
+	if (UNLIKELY((cli = ctx->uri->cli) <= 0)) {
+		cli = time(NULL);
+	}
+	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -907,9 +933,9 @@ main(int argc, char *argv[])
 
 	/* snarf host name and port */
 	if (argi->tws_given) {
-		ctx->uri = argi->tws_arg;
+		*ctx->uri = make_uri(argi->tws_arg);
 	} else {
-		ctx->uri = "localhost";
+		*ctx->uri = make_uri("localhost");
 	}
 
 	/* make sure we know where to find the subscription files */
@@ -1070,6 +1096,9 @@ main(int argc, char *argv[])
 			ev_io_shut(EV_A_ dccp + i);
 		}
 	}
+
+	/* free uri resources */
+	free_uri(ctx->uri);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
