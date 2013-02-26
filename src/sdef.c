@@ -115,13 +115,6 @@ __tx_nsid_from_href(const char *href)
 	return n != NULL ? n->nsid : TX_NS_UNK;
 }
 
-static void __attribute__((unused))
-set_state_object(__ctx_t ctx, void *z)
-{
-	ctx->state->object = z;
-	return;
-}
-
 void
 ptx_reg_ns(__ctx_t ctx, const char *pref, const char *href)
 {
@@ -286,43 +279,60 @@ el_end(void *clo, const char *elem)
 
 /* public funs */
 #if defined HAVE_EXPAT_H
-int
-tws_deser_cont(
-	const char *xml, size_t len,
-	int(*cb)(tws_cont_t, void*), void *cbclo)
+tws_sreq_t
+tws_deser_sreq(const char *xml, size_t len)
 {
 	XML_Parser hdl;
 	struct __ctx_s clo = {0};
 
 	if ((hdl = XML_ParserCreate(NULL)) == NULL) {
-		return -1;
+		return NULL;
 	}
-	/* register our callback */
-	clo.cont_cb = cb;
-	clo.cbclo = cbclo;
 
 	XML_SetElementHandler(hdl, el_sta, el_end);
 	XML_SetUserData(hdl, &clo);
 
 	if (XML_Parse(hdl, xml, len, XML_TRUE) == XML_STATUS_ERROR) {
 		TX_DEBUG("XML parser error\n");
-		return -1;
+		tws_free_sreq(clo.sreq);
+		return NULL;
 	}
 
 	/* get rid of resources */
 	XML_ParserFree(hdl);
-	return 0;
+	return clo.sreq;
 }
 
 #else  /* HAVE_EXPAT_H */
-int
-tws_deser_cont(
-	const char *UNUSED(xml), size_t UNUSED(len),
-	UNUSED(int(*cb)(tws_cont_t, void*)), void *UNUSED(cbclo))
+tws_sreq_t
+tws_deser_sreq(const char *UNUSED(xml), size_t UNUSED(len))
 {
-	return -1;
+	return NULL;
 }
 #endif	/* HAVE_EXPAT_H */
+
+void
+tws_free_sreq(tws_sreq_t sreq)
+{
+	struct __sreq_s {
+		struct __sreq_s *next;
+	};
+
+	if (UNLIKELY(sreq == NULL)) {
+		return;
+	}
+	for (struct __sreq_s *sr = unconst(sreq), *srnx; sr; sr = srnx) {
+		tws_sreq_t this = (tws_sreq_t)sr;
+
+		srnx = sr->next;
+		tws_free_cont(this->c);
+		if (this->nick != NULL) {
+			free(unconst(this->nick));
+		}
+		free(sr);
+	}
+	return;
+}
 
 
 /* serialiser */

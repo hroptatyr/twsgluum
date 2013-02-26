@@ -205,8 +205,6 @@ sax_bo_FIXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 	/* all the stuff that needs a new sax handler */
 	switch (tid) {
 	case FIX_TAG_FIXML:
-		ptx_init(ctx);
-
 		if (UNLIKELY(attr == NULL)) {
 			break;
 		}
@@ -221,27 +219,36 @@ sax_bo_FIXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 
 	case FIX_TAG_SECDEF: {
 		tws_cont_t ins = (tws_cont_t)new IB::Contract;
-		tx_tid_t x = {tid};
 
+		if (LIKELY(ctx->next != NULL)) {
+			void *sr = calloc(1, sizeof(*ctx->next));
+			ctx->next->next = (tws_sreq_t)sr;
+			ctx->next = (struct tws_sreq_s*)sr;
+		} else {
+			void *sr = calloc(1, sizeof(*ctx->next));
+			ctx->next = (struct tws_sreq_s*)sr;
+			ctx->sreq = (tws_sreq_t)sr;
+		}
 		for (const char **ap = attr; ap && *ap; ap += 2) {
 			const fixml_aid_t aid = check_fix_attr(ctx, ap[0]);
 
 			proc_SECDEF_attr(ins, TX_NS_FIXML_5_0, aid, ap[1]);
 		}
-		push_state(ctx, TX_NS_FIXML_5_0, x, ins);
+		if (UNLIKELY(ctx->next->c != NULL)) {
+			delete (IB::Contract*)ctx->next->c;
+		}
+		ctx->next->c = ins;
 		break;
 	}
 
 	case FIX_TAG_INSTRMT: {
-		tws_cont_t ins = get_state_object(ctx);
-		tx_tid_t x = {tid};
+		tws_cont_t ins = (tws_cont_t)ctx->next->c;
 
 		for (const char **ap = attr; ap && *ap; ap += 2) {
 			const fixml_aid_t aid = check_fix_attr(ctx, ap[0]);
 
 			proc_INSTRMT_attr(ins, TX_NS_FIXML_5_0, aid, ap[1]);
 		}
-		push_state(ctx, TX_NS_FIXML_5_0, x, ins);
 		break;
 	}
 
@@ -263,21 +270,8 @@ sax_eo_FIXML_elt(__ctx_t ctx, const char *elem)
 	case FIX_TAG_BATCH:
 		break;
 
-	case FIX_TAG_SECDEF: {
-		tws_cont_t ins = pop_state(ctx);
-
-		if (UNLIKELY(ins == NULL)) {
-			TX_DEBUG("internal parser error, cont is NULL\n");
-			break;
-		} else if (ctx->cont_cb == NULL ||
-			   ctx->cont_cb(ins, ctx->cbclo) < 0) {
-			delete (IB::Contract*)ins;
-		}
-		break;
-	}
-
+	case FIX_TAG_SECDEF:
 	case FIX_TAG_INSTRMT:
-		pop_state(ctx);
 		break;
 
 	default:

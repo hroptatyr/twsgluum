@@ -99,13 +99,18 @@
 
 typedef struct ctx_s *ctx_t;
 
+struct tws_uri_s {
+	char *str;
+	int cli;
+	const char *h;
+	const char *p;
+};
+
 struct ctx_s {
 	struct tws_s tws[1];
 
-	/* static context */
-	const char *host;
-	uint16_t port;
-	int client;
+	/* parsed up uri string */
+	struct tws_uri_s uri[1];
 
 	unsigned int nsubf;
 	const char *const *subf;
@@ -171,9 +176,8 @@ sock_listener(int s, struct sockaddr_in6 *sa)
 }
 
 static int
-tws_sock(const char *host, short unsigned int port)
+tws_sock(const struct tws_uri_s uri[static 1])
 {
-	static char pstr[32];
 	struct addrinfo *aires;
 	struct addrinfo hints = {0};
 	int s = -1;
@@ -189,10 +193,7 @@ tws_sock(const char *host, short unsigned int port)
 #endif	/* AI_V4MAPPED */
 	hints.ai_protocol = 0;
 
-	/* port number as string */
-	snprintf(pstr, sizeof(pstr) - 1, "%hu", port);
-
-	if (getaddrinfo(host, pstr, &hints, &aires) < 0) {
+	if (getaddrinfo(uri->h, uri->p, &hints, &aires) < 0) {
 		goto out;
 	}
 	/* now try them all */
@@ -205,6 +206,43 @@ tws_sock(const char *host, short unsigned int port)
 out:
 	freeaddrinfo(aires);
 	return s;
+}
+
+static struct tws_uri_s
+make_uri(const char *uri)
+{
+	struct tws_uri_s res;
+	char *h;
+	char *p;
+
+	/* firstly so we operate on a copy of URI */
+	res.str = strdup(uri);
+
+	/* fix up host */
+	if ((h = strchr(res.str, '@')) == NULL) {
+		res.h = res.str;
+		res.cli = 0;
+	} else {
+		*h++ = '\0';
+		res.h = h;
+		res.cli = atoi(res.str);
+	}
+
+	/* port number as string */
+	if ((p = strchr(res.h, ':')) == NULL) {
+		res.p = "7474";
+	} else {
+		*p++ = '\0';
+		res.p = p;
+	}
+	return res;
+}
+
+static void
+free_uri(struct tws_uri_s uri[static 1])
+{
+	free(uri->str);
+	return;
 }
 
 
@@ -478,15 +516,15 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 }
 
 static int
-__sub_sdef(tws_cont_t ins, void *clo)
+__sub_sdef(tws_t tws, tws_sreq_t sr)
 {
 /* subscribe to INS
  * we actually subscribe instruments twice, once here using the
  * instrument specified in INS and then we request security definitions
  * and upon a successful definition response we subscribe
  * those responses again */
-	tws_t tws = clo;
 	struct sub_s s;
+	tws_cont_t ins = sr->c;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
 	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
@@ -497,7 +535,7 @@ __sub_sdef(tws_cont_t ins, void *clo)
 
 	/* fill in sub for our tracking */
 	s.sdef = NULL;
-	s.nick = strdup(tws_cont_nick(ins));
+	s.nick = strdup(sr->nick);
 	subq_add(((ctx_t)tws)->sq, s);
 
 	/* just to have some more juice to work with */
@@ -524,9 +562,15 @@ init_subs(tws_t tws, const char *file)
 	} else if ((fp = mmap(NULL, fsz, PR, MS, fd, 0)) == MAP_FAILED) {
 		error(errno, "cannot read subscription file %s", file);
 	} else {
-		QUO_DEBUG("SUBS\n");
-		tws_deser_cont(fp, fsz, __sub_sdef, tws);
-	}
+		tws_sreq_t sr = tws_deser_sreq(fp, fsz);
+
+		QUO_DEBUG("SUBS  %p\n", sr);
+		for (tws_sreq_t s = sr; s; s = s->next) {
+			__sub_sdef(tws, s);
+		}
+
+		tws_free_sreq(sr);
+        }
 	return;
 }
 
@@ -656,7 +700,9 @@ twsc_cb(EV_P_ ev_io w[static 1], int rev)
 	if ((rev & EV_CUSTOM)/*hangup requested*/ ||
 	    recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
 		/* perform some clean up work on our data */
-		twsc_conn_clos(ctx);
+		if (LIKELY(ctx != NULL)) {
+			twsc_conn_clos(ctx);
+		}
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
@@ -677,6 +723,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	static ev_io twsc[1];
 	ctx_t ctx;
 	int s;
+	int cli;
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
@@ -688,7 +735,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	}
 	/* otherwise proceed normally */
 	ctx = w->data;
-	if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
+	if ((s = tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
 	}
@@ -698,7 +745,10 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	if (UNLIKELY(init_tws(ctx->tws, s, ctx->client) < 0)) {
+	if (UNLIKELY((cli = ctx->uri->cli) <= 0)) {
+		cli = time(NULL);
+	}
+	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -735,6 +785,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		break;
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
+			QUO_DEBUG("SUBS\n");
 			for (unsigned int i = 0; i < ctx->nsubf; i++) {
 				init_subs(ctx->tws, ctx->subf[i]);
 			}
@@ -881,23 +932,10 @@ main(int argc, char *argv[])
 	}
 
 	/* snarf host name and port */
-	if (argi->tws_host_given) {
-		ctx->host = argi->tws_host_arg;
+	if (argi->tws_given) {
+		*ctx->uri = make_uri(argi->tws_arg);
 	} else {
-		ctx->host = "localhost";
-	}
-	if (argi->tws_port_given) {
-		ctx->port = (uint16_t)argi->tws_port_arg;
-	} else {
-		ctx->port = (uint16_t)7474;
-	}
-	if (argi->tws_client_id_given) {
-		ctx->client = argi->tws_client_id_arg;
-	} else {
-		struct timeval now[1];
-
-		(void)gettimeofday(now, NULL);
-		ctx->client = now->tv_sec;
+		*ctx->uri = make_uri("localhost");
 	}
 
 	/* make sure we know where to find the subscription files */
@@ -1058,6 +1096,9 @@ main(int argc, char *argv[])
 			ev_io_shut(EV_A_ dccp + i);
 		}
 	}
+
+	/* free uri resources */
+	free_uri(ctx->uri);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
