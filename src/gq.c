@@ -1,10 +1,10 @@
 /*** gq.c -- generic queues, or pools of data elements
  *
- * Copyright (C) 2012 Sebastian Freundt
+ * Copyright (C) 2012-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of unsermarkt.
+ * This file is part of twsgluum.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,139 +42,138 @@
 #include <stddef.h>
 #include <sys/mman.h>
 #include "gq.h"
-#include "nifty.h"
 
 #if defined DEBUG_FLAG
 # include <assert.h>
 #else  /* !DEBUG_FLAG */
 # define assert(x)
 #endif	/* DEBUG_FLAG */
+#if !defined LIKELY
+# define LIKELY(_x)	__builtin_expect((_x), 1)
+#endif	/* !LIKELY */
+#if !defined UNLIKELY
+# define UNLIKELY(_x)	__builtin_expect((_x), 0)
+#endif	/* UNLIKELY */
+#if !defined UNUSED
+# define UNUSED(x)	__attribute__((unused)) x
+#endif	/* UNUSED */
 
-static size_t __attribute__((const, pure))
+/* just a service for mmap based allocators */
+#if !defined MAP_ANON && defined MAP_ANONYMOUS
+# define MAP_ANON	MAP_ANONYMOUS
+#endif	/* MAP_ANON && !MAP_ANONYMOUS */
+#if !defined MAP_MEM
+# define MAP_MEM	(MAP_PRIVATE | MAP_ANON)
+#endif	/* MAP_MEM */
+#if !defined PROT_MEM
+# define PROT_MEM	(PROT_READ | PROT_WRITE)
+#endif	/* PROT_MEM */
+
+typedef struct bk_item_s *bk_item_t;
+
+struct bk_item_s {
+	bk_item_t next;
+	size_t z;
+};
+
+
+static inline __attribute__((const, pure)) size_t
 gq_nmemb(size_t mbsz, size_t n)
 {
-	static size_t pgsz = 0;
-
-	if (!pgsz) {
-		pgsz = sysconf(_SC_PAGESIZE);
-	}
-	return (n * mbsz + (pgsz - 1)) & ~(pgsz - 1);
+	return (n * mbsz);
 }
 
-DEFUN void
-gq_rbld_ll(gq_ll_t dll, ptrdiff_t df)
+static inline __attribute__((pure)) gq_item_t
+gq_item(gq_t UNUSED(q), void *x)
 {
-	if (UNLIKELY(df == 0)) {
-		/* thank you thank you thank you */
-		return;
-	}
+	return x;
+}
+static inline __attribute__((pure)) struct gq_item_s*
+gq_item_ptr(gq_t UNUSED(q), gq_item_t x)
+{
+	return x;
+}
 
-	if (dll->i1st) {
-		dll->i1st += df;
-	}
-	if (dll->ilst) {
-		dll->ilst += df;
-	}
+static void
+gq_rinse(gq_item_t i)
+{
+	i->next = GQ_NULL_ITEM;
 	return;
 }
 
-static ptrdiff_t
-gq_rbld(gq_t q, gq_item_t nu_ref, size_t mbsz)
+DEFUN void
+init_gq(gq_t q, size_t nnew_members, size_t mbsz)
 {
-	ptrdiff_t df = nu_ref - q->items;
+	void *ol_items = q->book->i1st;
+	void *nu_items;
+	size_t olsz;
+	size_t nusz;
 
-	if (UNLIKELY(df == 0)) {
-		/* thank you thank you thank you */
-		return 0;
-	}
-
-	/* rebuild the free dll */
-	gq_rbld_ll(q->free, df);
-	/* hop along all items and up the next and prev pointers */
-	for (char *sp = (void*)nu_ref, *ep = sp + q->nitems; sp < ep; sp += mbsz) {
-		gq_item_t ip = (void*)sp;
-
-		if (ip->next) {
-			ip->next += df;
-		}
-		if (ip->prev) {
-			ip->prev += df;
+	if (q->itemz == 0UL) {
+		/* itemz singleton */
+		if (UNLIKELY((q->itemz = mbsz) == 0UL)) {
+			return;
 		}
 	}
-	return df;
-}
 
-DEFUN ptrdiff_t
-init_gq(gq_t q, size_t mbsz, size_t at_least)
-{
-	size_t nusz = gq_nmemb(mbsz, at_least);
-	size_t olsz = q->nitems;
-	gq_item_t ol_items = q->items;
-	gq_item_t nu_items;
-	ptrdiff_t res = 0;
+	/* old size of the active map */
+	mbsz = q->itemz;
+	olsz = gq_nmemb(mbsz, q->nitems);
+	nusz = gq_nmemb(mbsz, q->nitems + nnew_members);
 
-	if (q->nitems > nusz) {
-		return 0;
-	}
-	/* get some new items */
-	nu_items = mmap(ol_items, nusz, PROT_MEM, MAP_MEM, -1, 0);
-
-	if (ol_items != NULL) {
-		/* aha, resize */
-		memcpy(nu_items, ol_items, olsz);
-
-		/* fix up all lists */
-		res = gq_rbld(q, nu_items, mbsz);
-
-		/* unmap the old guy */
-		munmap(ol_items, olsz);
-	}
-	/* reassign */
-	q->items = nu_items;
-	q->nitems = nusz;
-
-	/* fixup sizes for the free list fiddling */
-	olsz -= olsz % mbsz;
-	nusz -= nusz % mbsz;
-	/* fill up the free list */
+#if defined MREMAP_MAYMOVE
+	if (ol_items) {
+		nu_items = mremap(ol_items, olsz, nusz, 0);
+	} else
+#endif	/* MREMAP_MAYMOVE */
 	{
-		char *const ep = (char*)nu_items + olsz;
-		char *const eep = ep + (nusz - olsz);
-		gq_item_t eip = (void*)ep;
-
-		for (char *sp = ep; sp < eep; sp += mbsz) {
-			gq_item_t ip = (void*)sp;
-
-			if (sp + mbsz < eep) {
-				ip->next = (void*)(sp + mbsz);
-			}
-			if (sp > ep) {
-				ip->prev = (void*)(sp - mbsz);
-			}
-		}
-		/* attach new list to free list */
-		eip->prev = q->free->ilst;
-		if (q->free->ilst) {
-			q->free->ilst->next = eip;
-		} else {
-			assert(q->free->i1st == NULL);
-		}
-		if (q->free->i1st == NULL) {
-			q->free->i1st = eip;
-			q->free->ilst = (void*)(eep - mbsz);
-		}
+		/* get some new items */
+		nu_items = mmap(ol_items, nusz, PROT_MEM, MAP_MEM, -1, 0);
 	}
-	return res;
+
+	/* reassign */
+	q->nitems = nusz / mbsz;
+
+	if (nu_items != ol_items) {
+		/* steal one item again for the book keeper */
+		bk_item_t bk = nu_items;
+
+		bk->z = nusz;
+		gq_push_head(q->book, (gq_item_t)bk);
+
+		/* reset nu_items and size */
+		nu_items = (char*)nu_items + mbsz;
+		nusz -= mbsz;
+	} else {
+		/* update the book keeper */
+		bk_item_t bk = nu_items;
+
+		bk->z = nusz;
+
+		/* reset nu_items pointer */
+		nu_items = (char*)nu_items + olsz;
+		nusz -= olsz;
+	}
+
+	/* fill up the free list
+	 * the first member of the list will not be pointed to by i1st
+	 * it's a bookkeeper */
+	for (char *sp = nu_items, *const ep = sp + nusz;
+	     sp < ep; sp += mbsz) {
+		gq_push_tail(q->free, (gq_item_t)sp);
+	}
+	return;
 }
 
 DEFUN void
 fini_gq(gq_t q)
 {
-	if (q->items) {
-		munmap(q->items, q->nitems);
-		q->items = NULL;
-		q->nitems = 0;
+	/* use the bookkeeper elements to determine size and addresses */
+	for (bk_item_t bk; (bk = (void*)gq_pop_head(q->book)) != NULL;) {
+		munmap(bk, bk->z);
 	}
+	q->nitems = 0U;
+	q->itemz = 0U;
 	return;
 }
 
@@ -183,47 +182,40 @@ gq_pop_head(gq_ll_t dll)
 {
 	gq_item_t res;
 
-	if ((res = dll->i1st) && (dll->i1st = dll->i1st->next) == NULL) {
-		dll->ilst = NULL;
-	} else if (res) {
-		dll->i1st->prev = NULL;
+	if ((res = dll->i1st) == GQ_NULL_ITEM) {
+		return GQ_NULL_ITEM;
+	} else if ((dll->i1st = dll->i1st->next) == GQ_NULL_ITEM) {
+		dll->ilst = GQ_NULL_ITEM;
 	}
+	gq_rinse(res);
 	return res;
 }
 
 DEFUN void
 gq_push_tail(gq_ll_t dll, gq_item_t i)
 {
-	if (dll->ilst) {
+	gq_rinse(i);
+	if (dll->ilst != GQ_NULL_ITEM) {
 		dll->ilst->next = i;
-		i->prev = dll->ilst;
-		i->next = NULL;
 		dll->ilst = i;
 	} else {
-		assert(dll->i1st == NULL);
+		assert(dll->i1st == GQ_NULL_ITEM);
 		dll->i1st = dll->ilst = i;
-		i->next = NULL;
-		i->prev = NULL;
 	}
 	return;
 }
 
 DEFUN void
-gq_pop_item(gq_ll_t dll, gq_item_t ip)
+gq_push_head(gq_ll_t dll, gq_item_t i)
 {
-	if (ip->prev) {
-		ip->prev->next = ip->next;
+	gq_rinse(i);
+	if (dll->i1st != GQ_NULL_ITEM) {
+		i->next = dll->i1st;
+		dll->i1st = i;
 	} else {
-		/* must be head then */
-		dll->i1st = ip->next;
+		assert(dll->ilst == GQ_NULL_ITEM);
+		dll->i1st = dll->ilst = i;
 	}
-	if (ip->next) {
-		ip->next->prev = ip->prev;
-	} else {
-		/* must be tail then */
-		dll->ilst = ip->prev;
-	}
-	ip->next = ip->prev = NULL;
 	return;
 }
 

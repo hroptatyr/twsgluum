@@ -110,28 +110,6 @@ matches_q30_p(quo_qqq_t cell, struct key_s k)
 /* queues and stuff */
 #include "gq.c"
 
-static void
-check_q(quoq_t MAYBE_UNUSED(qq))
-{
-#if defined DEBUG_FLAG
-	/* count all items */
-	size_t ni;
-
-	ni = 0;
-	for (gq_item_t ip = qq->q->free->i1st; ip; ip = ip->next, ni++);
-	for (gq_item_t ip = qq->sbuf->i1st; ip; ip = ip->next, ni++);
-	for (gq_item_t ip = qq->pbuf->i1st; ip; ip = ip->next, ni++);
-	assert(ni == qq->q->nitems / sizeof(struct quo_qqq_s));
-
-	ni = 0;
-	for (gq_item_t ip = qq->q->free->ilst; ip; ip = ip->prev, ni++);
-	for (gq_item_t ip = qq->sbuf->ilst; ip; ip = ip->prev, ni++);
-	for (gq_item_t ip = qq->pbuf->ilst; ip; ip = ip->prev, ni++);
-	assert(ni == qq->q->nitems / sizeof(struct quo_qqq_s));
-#endif	/* DEBUG_FLAG */
-	return;
-}
-
 static quo_qqq_t
 make_qqq(quoq_t qq)
 {
@@ -139,14 +117,10 @@ make_qqq(quoq_t qq)
 
 	if (qq->q->free->i1st == NULL) {
 		size_t nitems = qq->q->nitems / sizeof(*res);
-		ptrdiff_t df;
 
 		assert(qq->q->free->ilst == NULL);
 		QUO_DEBUG("RESZ  QQ  ->%zu\n", nitems + 64);
-		df = init_gq(qq->q, sizeof(*res), nitems + 64);
-		gq_rbld_ll(qq->sbuf, df);
-		gq_rbld_ll(qq->pbuf, df);
-		check_q(qq);
+		init_gq(qq->q, 64, sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(qq->q->free);
@@ -179,7 +153,7 @@ bang_qqq(quoq_t qq, quo_qqq_t q)
 static quo_qqq_t
 find_p_cell(gq_ll_t lst, struct key_s k)
 {
-	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
 		quo_qqq_t qp = (void*)ip;
 
 		if (matches_q30_p(qp, k)) {
