@@ -76,27 +76,6 @@ struct subq_s {
 /* queues and stuff */
 #include "gq.c"
 
-static void
-check_q(subq_t MAYBE_UNUSED(sq))
-{
-#if defined DEBUG_FLAG
-	/* count all items */
-	size_t ni = 0;
-
-	for (gq_item_t ip = sq->q->free->i1st; ip; ip = ip->next, ni++);
-	for (gq_item_t ip = sq->sbuf->i1st; ip; ip = ip->next, ni++);
-	for (gq_item_t ip = sq->norm->i1st; ip; ip = ip->next, ni++);
-	assert(ni == sq->q->nitems / sizeof(struct sub_qqq_s));
-
-	ni = 0;
-	for (gq_item_t ip = sq->q->free->ilst; ip; ip = ip->prev, ni++);
-	for (gq_item_t ip = sq->sbuf->ilst; ip; ip = ip->prev, ni++);
-	for (gq_item_t ip = sq->norm->ilst; ip; ip = ip->prev, ni++);
-	assert(ni == sq->q->nitems / sizeof(struct sub_qqq_s));
-#endif	/* DEBUG_FLAG */
-	return;
-}
-
 static sub_qqq_t
 make_qqq(subq_t sq)
 {
@@ -104,14 +83,10 @@ make_qqq(subq_t sq)
 
 	if (sq->q->free->i1st == NULL) {
 		size_t nitems = sq->q->nitems / sizeof(*res);
-		ptrdiff_t df;
 
 		assert(sq->q->free->ilst == NULL);
 		SUB_DEBUG("RESZ  SQ  ->%zu\n", nitems + 64);
-		df = init_gq(sq->q, sizeof(*res), nitems + 64);
-		gq_rbld_ll(sq->sbuf, df);
-		gq_rbld_ll(sq->norm, df);
-		check_q(sq);
+		init_gq(sq->q, 64, sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(sq->q->free);
@@ -135,7 +110,7 @@ pop_qqq(subq_t sq)
 static sub_qqq_t
 find_cell(gq_ll_t lst, uint32_t idx)
 {
-	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
 		sub_qqq_t sp = (void*)ip;
 
 		if (sp->s.idx == idx) {
@@ -148,7 +123,7 @@ find_cell(gq_ll_t lst, uint32_t idx)
 static sub_qqq_t
 find_uidx(gq_ll_t lst, uint32_t uidx)
 {
-	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
 		sub_qqq_t sp = (void*)ip;
 
 		if (sp->s.uidx == uidx) {
@@ -161,7 +136,7 @@ find_uidx(gq_ll_t lst, uint32_t uidx)
 static sub_qqq_t
 find_sreq(gq_ll_t lst, uint32_t idx)
 {
-	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
 		sub_qqq_t sp = (void*)ip;
 
 		if (sp->s.sreq == idx) {
@@ -174,7 +149,7 @@ find_sreq(gq_ll_t lst, uint32_t idx)
 static sub_qqq_t
 find_nick(gq_ll_t lst, const char nick[1])
 {
-	for (gq_item_t ip = lst->ilst; ip; ip = ip->prev) {
+	for (gq_item_t ip = lst->i1st; ip; ip = ip->next) {
 		sub_qqq_t sp = (void*)ip;
 
 		if (LIKELY(sp->s.nick != NULL) && !strcmp(sp->s.nick, nick)) {
