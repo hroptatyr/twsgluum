@@ -535,7 +535,9 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
 
 	/* fill in sub for our tracking */
 	s.sdef = NULL;
-	s.nick = strdup(sr->nick);
+	if (sr->nick != NULL) {
+		s.nick = strdup(sr->nick);
+	}
 	subq_add(((ctx_t)tws)->sq, s);
 
 	/* just to have some more juice to work with */
