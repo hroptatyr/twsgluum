@@ -311,16 +311,6 @@ tws_deser_sreq(const char *UNUSED(xml), size_t UNUSED(len))
 }
 #endif	/* HAVE_EXPAT_H */
 
-static void*
-unconst(const void *p)
-{
-	union {
-		const void *c;
-		void *p;
-	} x = {p};
-	return x.p;
-}
-
 void
 tws_free_sreq(tws_sreq_t sreq)
 {
