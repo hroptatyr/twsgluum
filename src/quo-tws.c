@@ -664,7 +664,9 @@ twsc_cb(EV_P_ ev_io w[static 1], int rev)
 	if ((rev & EV_CUSTOM)/*hangup requested*/ ||
 	    recv(w->fd, noop, sizeof(noop), MSG_PEEK) <= 0) {
 		/* perform some clean up work on our data */
-		twsc_conn_clos(ctx);
+		if (LIKELY(ctx != NULL)) {
+			twsc_conn_clos(ctx);
+		}
 		/* uh oh */
 		ev_io_shut(EV_A_ w);
 		w->fd = -1;
