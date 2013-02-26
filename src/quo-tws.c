@@ -478,15 +478,15 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 }
 
 static int
-__sub_sdef(tws_cont_t ins, void *clo)
+__sub_sdef(tws_t tws, tws_sreq_t sr)
 {
 /* subscribe to INS
  * we actually subscribe instruments twice, once here using the
  * instrument specified in INS and then we request security definitions
  * and upon a successful definition response we subscribe
  * those responses again */
-	tws_t tws = clo;
 	struct sub_s s;
+	tws_cont_t ins = sr->c;
 
 	QUO_DEBUG("SUBC  %p\n", ins);
 	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
@@ -497,7 +497,7 @@ __sub_sdef(tws_cont_t ins, void *clo)
 
 	/* fill in sub for our tracking */
 	s.sdef = NULL;
-	s.nick = strdup(tws_cont_nick(ins));
+	s.nick = strdup(sr->nick);
 	subq_add(((ctx_t)tws)->sq, s);
 
 	/* just to have some more juice to work with */
@@ -524,8 +524,16 @@ init_subs(tws_t tws, const char *file)
 	} else if ((fp = mmap(NULL, fsz, PR, MS, fd, 0)) == MAP_FAILED) {
 		error(errno, "cannot read subscription file %s", file);
 	} else {
+		tws_sreq_t sr;
+
 		QUO_DEBUG("SUBS\n");
-		tws_deser_cont(fp, fsz, __sub_sdef, tws);
+		sr = tws_deser_sreq(fp, fsz);
+
+		for (tws_sreq_t s = sr; s; s = s->next) {
+			__sub_sdef(tws, s);
+		}
+
+		tws_free_sreq(sr);
 	}
 	return;
 }
