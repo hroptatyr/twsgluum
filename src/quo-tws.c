@@ -103,9 +103,7 @@ struct ctx_s {
 	struct tws_s tws[1];
 
 	/* static context */
-	const char *host;
-	uint16_t port;
-	int client;
+	const char *uri;
 
 	unsigned int nsubf;
 	const char *const *subf;
@@ -171,11 +169,13 @@ sock_listener(int s, struct sockaddr_in6 *sa)
 }
 
 static int
-tws_sock(const char *host, short unsigned int port)
+tws_sock(const char *host)
 {
-	static char pstr[32];
 	struct addrinfo *aires;
 	struct addrinfo hints = {0};
+	char *hstr;
+	char *h;
+	char *p;
 	int s = -1;
 
 	hints.ai_family = AF_UNSPEC;
@@ -189,10 +189,24 @@ tws_sock(const char *host, short unsigned int port)
 #endif	/* AI_V4MAPPED */
 	hints.ai_protocol = 0;
 
-	/* port number as string */
-	snprintf(pstr, sizeof(pstr) - 1, "%hu", port);
+	/* firstly so we operate on a copy of HOST */
+	hstr = strdup(host);
 
-	if (getaddrinfo(host, pstr, &hints, &aires) < 0) {
+	/* fix up host */
+	if ((h = strchr(hstr, '@')) == NULL) {
+		h = hstr;
+	} else {
+		*h++ = '\0';
+	}
+
+	/* port number as string */
+	if ((p = strchr(h, ':')) == NULL) {
+		p = "7474";
+	} else {
+		*p++ = '\0';
+	}
+
+	if (getaddrinfo(h, p, &hints, &aires) < 0) {
 		goto out;
 	}
 	/* now try them all */
@@ -203,6 +217,7 @@ tws_sock(const char *host, short unsigned int port)
 	     close(s), s = -1, ai = ai->ai_next);
 
 out:
+	free(hstr);
 	freeaddrinfo(aires);
 	return s;
 }
@@ -524,17 +539,15 @@ init_subs(tws_t tws, const char *file)
 	} else if ((fp = mmap(NULL, fsz, PR, MS, fd, 0)) == MAP_FAILED) {
 		error(errno, "cannot read subscription file %s", file);
 	} else {
-		tws_sreq_t sr;
+		tws_sreq_t sr = tws_deser_sreq(fp, fsz);
 
-		QUO_DEBUG("SUBS\n");
-		sr = tws_deser_sreq(fp, fsz);
-
+		QUO_DEBUG("SUBS  %p\n", sr);
 		for (tws_sreq_t s = sr; s; s = s->next) {
 			__sub_sdef(tws, s);
 		}
 
 		tws_free_sreq(sr);
-	}
+        }
 	return;
 }
 
@@ -698,7 +711,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	}
 	/* otherwise proceed normally */
 	ctx = w->data;
-	if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
+	if ((s = tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
 	}
@@ -708,7 +721,8 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	if (UNLIKELY(init_tws(ctx->tws, s, ctx->client) < 0)) {
+	int client = time(NULL);
+	if (UNLIKELY(init_tws(ctx->tws, s, client) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -745,6 +759,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		break;
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
+			QUO_DEBUG("SUBS\n");
 			for (unsigned int i = 0; i < ctx->nsubf; i++) {
 				init_subs(ctx->tws, ctx->subf[i]);
 			}
@@ -891,23 +906,10 @@ main(int argc, char *argv[])
 	}
 
 	/* snarf host name and port */
-	if (argi->tws_host_given) {
-		ctx->host = argi->tws_host_arg;
+	if (argi->tws_given) {
+		ctx->uri = argi->tws_arg;
 	} else {
-		ctx->host = "localhost";
-	}
-	if (argi->tws_port_given) {
-		ctx->port = (uint16_t)argi->tws_port_arg;
-	} else {
-		ctx->port = (uint16_t)7474;
-	}
-	if (argi->tws_client_id_given) {
-		ctx->client = argi->tws_client_id_arg;
-	} else {
-		struct timeval now[1];
-
-		(void)gettimeofday(now, NULL);
-		ctx->client = now->tv_sec;
+		ctx->uri = "localhost";
 	}
 
 	/* make sure we know where to find the subscription files */
