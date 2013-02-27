@@ -37,6 +37,7 @@ EXTRA_quo_tws_SOURCES += proto-twsxml-reqtyp.gperf proto-twsxml-reqtyp.h
 EXTRA_quo_tws_SOURCES += proto-fixml-tag.gperf proto-fixml-tag.h
 EXTRA_quo_tws_SOURCES += proto-fixml-attr.gperf proto-fixml-attr.h
 EXTRA_quo_tws_SOURCES += gq.c gq.h
+EXTRA_quo_tws_SOURCES += tws-uri.c tws-uri.h
 BUILT_SOURCES += proto-tx-attr.c
 BUILT_SOURCES += proto-tx-ns.c
 BUILT_SOURCES += proto-twsxml-tag.c
