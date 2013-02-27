@@ -1,10 +1,10 @@
 /*** gq.h -- generic queues, or pools of data elements
  *
- * Copyright (C) 2012 Sebastian Freundt
+ * Copyright (C) 2012-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of unsermarkt.
+ * This file is part of twsgluum.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,10 +40,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#if defined __cplusplus
-extern "C" {
-#endif	/* __cplusplus */
-
 #if defined STATIC_GQ_GUTS
 # undef DECLF
 # undef DEFUN
@@ -52,7 +48,7 @@ extern "C" {
 #elif !defined DECLF
 # define DECLF		extern
 # define DEFUN
-#endif	/* DECLF */
+#endif /* DECLF */
 
 /* generic queues */
 typedef struct gq_s *gq_t;
@@ -61,7 +57,6 @@ typedef struct gq_item_s *gq_item_t;
 
 struct gq_item_s {
 	gq_item_t next;
-	gq_item_t prev;
 
 	char data[];
 };
@@ -72,23 +67,22 @@ struct gq_ll_s {
 };
 
 struct gq_s {
-	gq_item_t items;
-	size_t nitems;
+	unsigned int nitems;
+	unsigned int itemz;
 
+	/* we keep all the ready-to-go elements here */
 	struct gq_ll_s free[1];
+	/* we chain up all book keeper elements here */
+	struct gq_ll_s book[1];
 };
 
+#define GQ_NULL_ITEM	((gq_item_t)(NULL))
 
-DECLF ptrdiff_t init_gq(gq_t, size_t mbsz, size_t at_least);
+DECLF void init_gq(gq_t, size_t nnew_members, size_t mbsz);
 DECLF void fini_gq(gq_t);
-DECLF void gq_rbld_ll(gq_ll_t dll, ptrdiff_t);
 
 DECLF gq_item_t gq_pop_head(gq_ll_t);
 DECLF void gq_push_tail(gq_ll_t, gq_item_t);
-DECLF void gq_pop_item(gq_ll_t dll, gq_item_t i);
-
-#if defined __cplusplus
-}
-#endif	/* __cplusplus */
+DECLF void gq_push_head(gq_ll_t, gq_item_t);
 
 #endif	/* INCLUDED_gq_h_ */
