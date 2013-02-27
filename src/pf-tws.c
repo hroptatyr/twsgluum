@@ -285,17 +285,6 @@ main(int argc, char *argv[])
 		*ctx->uri = make_uri("localhost");
 	}
 
-	/* initialise the main loop */
-	loop = ev_default_loop(EVFLAG_AUTO);
-
-	/* initialise a sig C-c handler */
-	ev_signal_init(sigint_watcher, sigall_cb, SIGINT);
-	ev_signal_start(EV_A_ sigint_watcher);
-	ev_signal_init(sigterm_watcher, sigall_cb, SIGTERM);
-	ev_signal_start(EV_A_ sigterm_watcher);
-	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
-	ev_signal_start(EV_A_ sighup_watcher);
-
 	/* and just before we're entering that REPL check for daemonisation */
 	if (argi->daemonise_given && detach() < 0) {
 		perror("daemonisation failed");
@@ -306,6 +295,17 @@ main(int argc, char *argv[])
 		res = 1;
 		goto out;
 	}
+
+	/* initialise the main loop */
+	loop = ev_default_loop(EVFLAG_AUTO);
+
+	/* initialise a sig C-c handler */
+	ev_signal_init(sigint_watcher, sigall_cb, SIGINT);
+	ev_signal_start(EV_A_ sigint_watcher);
+	ev_signal_init(sigterm_watcher, sigall_cb, SIGTERM);
+	ev_signal_start(EV_A_ sigterm_watcher);
+	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
+	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* prepare for hard slavery */
 	prep->data = ctx;
