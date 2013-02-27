@@ -39,6 +39,7 @@
 #endif	/* HAVE_CONFIG_H */
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include <twsapi/Contract.h>
 #include "logger.h"
 
