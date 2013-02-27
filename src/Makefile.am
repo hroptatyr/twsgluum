@@ -79,9 +79,11 @@ EXTRA_pf_tws_SOURCES += tws-sock.c tws-sock.h
 pf_tws_CPPFLAGS = $(AM_CPPFLAGS) -DSDEF_WRONLY
 pf_tws_CPPFLAGS += $(twsapi_CFLAGS)
 pf_tws_CPPFLAGS += $(libev_CFLAGS)
+pf_tws_CPPFLAGS += $(unserding_CFLAGS) -DUD_NEW_API
 pf_tws_LDFLAGS = $(AM_LDFLAGS)
 pf_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 pf_tws_LDFLAGS += $(libev_LIBS)
+pf_tws_LDFLAGS += $(unserding_LIBS)
 pf_tws_LDADD = $(pf_tws_LDFLAGS)
 
 bin_PROGRAMS += ox-tws

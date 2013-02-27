@@ -55,6 +55,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
+#include <unserding/unserding.h>
 
 /* the tws api */
 #define STATIC_TWS_URI_GUTS
@@ -99,6 +100,8 @@ struct ctx_s {
 
 	/* position queue */
 	pfaq_t pq;
+
+	ud_sock_t beef;
 };
 
 
@@ -128,6 +131,9 @@ pfaq_flush(ctx_t ctx)
 {
 	/* get the packet ctor'd */
 	pfaq_flush_cb(ctx->pq, (void(*)())pq_flush_cb, ctx->beef);
+
+	/* make sure nothing gets buffered */
+	ud_flush(ctx->beef);
 	return;
 }
 
@@ -368,6 +374,17 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 }
 
 static void
+beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
+{
+/* should not be called at all */
+	static char junk[1];
+
+	(void)recv(w->fd, junk, sizeof(junk), MSG_TRUNC);
+	PF_DEBUG("JUNK\n");
+	return;
+}
+
+static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -406,6 +423,7 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
+	ev_io ctrl[1];
 	/* final result */
 	int res = 0;
 
@@ -416,13 +434,6 @@ main(int argc, char *argv[])
 	if (pf_parser(argc, argv, argi)) {
 		res = 1;
 		goto out;
-	}
-
-	/* snarf host name and port */
-	if (argi->tws_given) {
-		*ctx->uri = make_uri(argi->tws_arg);
-	} else {
-		*ctx->uri = make_uri("localhost");
 	}
 
 	/* and just before we're entering that REPL check for daemonisation */
@@ -438,6 +449,36 @@ main(int argc, char *argv[])
 
 	/* initialise the main loop */
 	loop = ev_default_loop(EVFLAG_AUTO);
+
+	/* snarf host name and port */
+	if (argi->tws_given) {
+		*ctx->uri = make_uri(argi->tws_arg);
+	} else {
+		*ctx->uri = make_uri("localhost");
+	}
+
+	/* attach a multicast listener */
+	{
+		struct ud_sockopt_s opt = {
+			UD_SUB,
+		};
+		if ((ctrl->data = ud_socket(opt)) != NULL) {
+			ud_sock_t s = ctrl->data;
+			ev_io_init(ctrl, beef_cb, s->fd, EV_READ);
+			ev_io_start(EV_A_ ctrl);
+		}
+	}
+	/* go through all beef channels */
+	{
+		struct ud_sockopt_s opt = {
+			UD_PUB,
+			.port = (short unsigned int)argi->beef_arg,
+		};
+		if ((ctx->beef = ud_socket(opt)) == NULL) {
+			perror("cannot connect to beef channel");
+			goto unlo;
+		}
+	}
 
 	/* initialise a sig C-c handler */
 	ev_signal_init(sigint_watcher, sigall_cb, SIGINT);
@@ -471,6 +512,7 @@ main(int argc, char *argv[])
 	/* don't need the queue no more do we */
 	free_pfaq(ctx->pq);
 
+unlo:
 	/* free uri resources */
 	free_uri(ctx->uri);
 
