@@ -42,11 +42,13 @@
 #include "logger.h"
 #include <twsapi/Contract.h>
 
-#include "proto-tx-ns.h"
-#include "proto-twsxml-attr.h"
-#include "proto-twsxml-tag.h"
-#include "proto-twsxml-reqtyp.h"
-#include "sdef-private.h"
+#if !defined SDEF_WRONLY
+# include "proto-tx-ns.h"
+# include "proto-twsxml-attr.h"
+# include "proto-twsxml-tag.h"
+# include "proto-twsxml-reqtyp.h"
+# include "sdef-private.h"
+#endif	/* !SDEF_WRONLY */
 #include "sdef-seria.h"
 
 #if defined DEBUG_FLAG
@@ -65,9 +67,11 @@
 # undef __GNUC_STDC_INLINE__
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 
-#include "proto-twsxml-attr.c"
-#include "proto-twsxml-tag.c"
-#include "proto-twsxml-reqtyp.c"
+#if !defined SDEF_WRONLY
+# include "proto-twsxml-attr.c"
+# include "proto-twsxml-tag.c"
+# include "proto-twsxml-reqtyp.c"
+#endif  /* !SDEF_WRONLY */
 
 #if defined __INTEL_COMPILER
 # pragma warning (default:869)
@@ -77,13 +81,8 @@
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 #endif	/* HAVE_GPERF */
 
-struct req_s {
-	const char *tws;
-	tws_cont_t c;
-	const char *nick;
-};
-
 
+#if !defined SDEF_WRONLY
 static tws_xml_aid_t
 __tx_aid_from_attr_l(const char *attr, size_t len)
 {
@@ -371,6 +370,7 @@ parse_req_typ(const char *typ)
 
 	return rtc->rtid;
 }
+#endif  /* !SDEF_WRONLY */
 
 
 /* other stuff that has no better place */

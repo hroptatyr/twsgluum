@@ -47,11 +47,13 @@
 #include "logger.h"
 
 #include "sdef.h"
-#include "proto-tx-ns.h"
-#include "proto-tx-attr.h"
-#include "proto-twsxml-tag.h"
-#include "proto-fixml-tag.h"
-#include "sdef-private.h"
+#if !defined SDEF_WRONLY
+# include "proto-tx-ns.h"
+# include "proto-tx-attr.h"
+# include "proto-twsxml-tag.h"
+# include "proto-fixml-tag.h"
+# include "sdef-private.h"
+#endif	/* !SDEF_WRONLY */
 #include "sdef-seria.h"
 
 #if defined DEBUG_FLAG
@@ -82,7 +84,7 @@
 #endif	/* HAVE_GPERF */
 
 
-#if defined HAVE_EXPAT_H
+#if defined HAVE_EXPAT_H && !defined SDEF_WRONLY
 static ptx_ns_t
 __pref_to_ns(__ctx_t ctx, const char *pref, size_t pref_len)
 {
@@ -176,10 +178,10 @@ sax_tx_aid_from_attr(const char *attr)
 	const struct tx_attr_s *a = tx_aiddify(attr, alen);
 	return a ? a->aid : TX_ATTR_UNK;
 }
-#endif	/* HAVE_EXPAT_H */
+#endif	/* HAVE_EXPAT_H && !SDEF_WRONLY */
 
 
-#if defined HAVE_EXPAT_H
+#if defined HAVE_EXPAT_H && !defined SDEF_WRONLY
 static void
 proc_TX_xmlns(__ctx_t ctx, const char *pref, const char *value)
 {
@@ -275,11 +277,11 @@ el_end(void *clo, const char *elem)
 	}
 	return;
 }
-#endif	/* HAVE_EXPAT_H */
+#endif	/* HAVE_EXPAT_H && !SDEF_WRONLY */
 
 
 /* public funs */
-#if defined HAVE_EXPAT_H
+#if defined HAVE_EXPAT_H && !defined SDEF_WRONLY
 tws_sreq_t
 tws_deser_sreq(const char *xml, size_t len)
 {
@@ -304,13 +306,13 @@ tws_deser_sreq(const char *xml, size_t len)
 	return clo.sreq;
 }
 
-#else  /* HAVE_EXPAT_H */
+#else  /* !HAVE_EXPAT_H || SDEF_WRONLY */
 tws_sreq_t
 tws_deser_sreq(const char *UNUSED(xml), size_t UNUSED(len))
 {
 	return NULL;
 }
-#endif	/* HAVE_EXPAT_H */
+#endif	/* HAVE_EXPAT_H && !SDEF_WRONLY */
 
 void
 tws_free_sreq(tws_sreq_t sreq)

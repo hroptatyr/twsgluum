@@ -42,10 +42,12 @@
 #include <twsapi/Contract.h>
 #include "logger.h"
 
-#include "proto-tx-ns.h"
-#include "proto-fixml-attr.h"
-#include "proto-fixml-tag.h"
-#include "sdef-private.h"
+#if !defined SDEF_WRONLY
+# include "proto-tx-ns.h"
+# include "proto-fixml-attr.h"
+# include "proto-fixml-tag.h"
+# include "sdef-private.h"
+#endif  /* !SDEF_WRONLY */
 #include "sdef-seria.h"
 
 #if defined DEBUG_FLAG
@@ -64,8 +66,10 @@
 # undef __GNUC_STDC_INLINE__
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 
-#include "proto-fixml-attr.c"
-#include "proto-fixml-tag.c"
+#if !defined SDEF_WRONLY
+# include "proto-fixml-attr.c"
+# include "proto-fixml-tag.c"
+#endif  /* !SDEF_WRONLY */
 
 #if defined __INTEL_COMPILER
 # pragma warning (default:869)
@@ -76,6 +80,7 @@
 #endif	/* HAVE_GPERF */
 
 
+#if !defined SDEF_WRONLY
 static fixml_aid_t
 __fix_aid_from_attr_l(const char *attr, size_t len)
 {
@@ -280,6 +285,7 @@ sax_eo_FIXML_elt(__ctx_t ctx, const char *elem)
 	}
 	return;
 }
+#endif  /* !SDEF_WRONLY */
 
 
 /* serialiser */
