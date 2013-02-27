@@ -57,10 +57,14 @@
 #include <sys/utsname.h>
 
 /* the tws api */
+#define STATIC_TWS_URI_GUTS
+#define STATIC_TWS_SOCK_GUTS
 #include "pf-tws.h"
+#include "pfa.h"
 #include "logger.h"
 #include "daemonise.h"
 #include "tws.h"
+#include "sdef.h"
 #include "nifty.h"
 #include "tws-uri.h"
 #include "tws-sock.h"
@@ -79,6 +83,8 @@
 # define MAYBE_NOINLINE
 #endif	/* DEBUG_FLAG */
 
+#define TWS_ALL_ACCOUNTS	(NULL)
+
 typedef struct ctx_s *ctx_t;
 
 struct ctx_s {
@@ -86,11 +92,160 @@ struct ctx_s {
 
 	/* parsed up uri string */
 	struct tws_uri_s uri[1];
+
+	/* accounts under management */
+	char *ac_names;
+	size_t nac_names;
+
+	/* position queue */
+	pfaq_t pq;
 };
 
 
 #include "tws-uri.c"
 #include "tws-sock.c"
+
+
+static void
+um_pack_pr(ud_sock_t where, const char *what)
+{
+/* one day might go back to unsermarkt */
+	return;
+}
+
+static void
+pq_flush_cb(struct pfa_s p, ud_sock_t beef)
+{
+	const char *pr;
+
+	/* stuff him up the socket's sleeve */
+	um_pack_pr(beef, pr);
+	return;
+}
+
+static void
+pfaq_flush(ctx_t ctx)
+{
+	/* get the packet ctor'd */
+	pfaq_flush_cb(ctx->pq, (void(*)())pq_flush_cb, ctx->beef);
+	return;
+}
+
+static const char*
+find_ac_name(ctx_t ctx, const char *src)
+{
+	size_t az;
+	size_t nac = 0;
+	const char *ac;
+	size_t srz = strlen(src);
+
+	/* find that  */
+	for (ac = ctx->ac_names, nac = 0;
+	     nac < ctx->nac_names &&
+		     (az = strlen(ac), srz != az || memcmp(ac, src, az));
+	     nac++, ac += az + 1);
+
+	return nac < ctx->nac_names ? ac : NULL;
+}
+
+
+/* tws interaction */
+static void
+infra_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_infra_clo_s clo)
+{
+/* called from tws api for infra messages */
+	switch (what) {
+	case TWS_CB_INFRA_ERROR:
+		PF_DEBUG("NFRA  oid %u  code %u: %s\n",
+			clo.oid, clo.code, (const char*)clo.data);
+		break;
+	case TWS_CB_INFRA_CONN_CLOSED:
+		PF_DEBUG("NFRA  connection closed\n");
+		break;
+	case TWS_CB_INFRA_READY:
+		PF_DEBUG("NFRA  RDY\n");
+		break;
+	default:
+		PF_DEBUG("NFRA  what %u  oid %u  code %u  data %p\n",
+			what, clo.oid, clo.code, clo.data);
+		break;
+	}
+	return;
+}
+
+static void
+post_cb(tws_t tws, tws_cb_t what, struct tws_post_clo_s clo)
+{
+	switch (what) {
+	case TWS_CB_POST_MNGD_AC: {
+		ctx_t ctx = (void*)tws;
+		const char *str = clo.data;
+
+		PF_DEBUG("tws %p post MNGD_AC: %s\n", tws, str);
+
+		if (ctx->ac_names != NULL) {
+			free(ctx->ac_names);
+		}
+		if (UNLIKELY(str == NULL)) {
+			ctx->ac_names = NULL;
+			break;
+		}
+		ctx->ac_names = strdup(str);
+		ctx->nac_names = 0UL;
+		/* quick counting */
+		for (char *p = ctx->ac_names; *p; p++) {
+			if (*p == ',') {
+				*p = '\0';
+				ctx->nac_names++;
+			}
+		}
+		if (ctx->nac_names == 0UL) {
+			ctx->nac_names = 1;
+		}
+		break;
+	}
+	case TWS_CB_POST_ACUP: {
+		ctx_t ctx = (void*)tws;
+		const struct tws_post_acup_clo_s *rclo = clo.data;
+		struct pfa_s pos;
+
+		PF_DEBUG("tws %p: post ACUP: %s %s <- %.4f  (%.4f)\n",
+			tws, rclo->ac_name, tws_cont_nick(rclo->cont),
+			rclo->pos, rclo->val);
+
+		pos.ac = find_ac_name(ctx, rclo->ac_name);
+		pos.sym = tws_cont_nick(rclo->cont);
+		pos.lqty = rclo->pos > 0 ? rclo->pos : 0.0;
+		pos.sqty = rclo->pos < 0 ? -rclo->pos : 0.0;
+		pfaq_add(ctx->pq, pos);
+		break;
+	}
+	case TWS_CB_POST_ACUP_END: {
+		static const char *nex = NULL;
+		ctx_t ctx = (void*)tws;
+
+		if (ctx->nac_names <= 1) {
+			/* nothing to wrap around */
+			PF_DEBUG("single a/c, no further subscriptions\n");
+			break;
+		} else if (nex == NULL) {
+			nex = ctx->ac_names;
+		}
+		if (*(nex += strlen(nex) + 1) == '\0') {
+			nex = ctx->ac_names;
+			PF_DEBUG("last a/c, no further subscriptions\n");
+			break;
+		}
+		PF_DEBUG("subscribing to a/c %s\n", nex);
+		tws_sub_ac(tws, nex);
+		break;
+	}
+	default:
+		PF_DEBUG("%p post called: what %u  oid %u  data %p\n",
+			tws, what, clo.oid, clo.data);
+	}
+	return;
+}
 
 
 static void
@@ -172,6 +327,7 @@ static void
 prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 {
 	static ev_timer reco[1];
+	static tws_st_t old_st;
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
@@ -192,37 +348,22 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		}
 		break;
 	case TWS_ST_RDY:
+		if (old_st != TWS_ST_RDY) {
+			PF_DEBUG("SUBS\n");
+			tws_sub_ac(ctx->tws, TWS_ALL_ACCOUNTS);
+		}
 	case TWS_ST_SUP:
-		break;
-	default:
-		PF_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
-		abort();
-	}
-	return;
-}
-
-static void
-chck_cb(EV_P_ ev_check *w, int UNUSED(revents))
-{
-	ctx_t ctx = w->data;
-	tws_st_t st;
-
-	PF_DEBUG("CHCK\n");
-
-	st = tws_state(ctx->tws);
-	PF_DEBUG("STAT  %u\n", st);
-	switch (st) {
-	case TWS_ST_SUP:
-	case TWS_ST_RDY:
+		/* former ST_RDY/ST_SUP case pair in chck_cb() */
 		tws_send(ctx->tws);
-		break;
-	case TWS_ST_UNK:
-	case TWS_ST_DWN:
+		/* and flush the queue */
+		pfaq_flush(ctx);
 		break;
 	default:
 		PF_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
 		abort();
 	}
+
+	old_st = st;
 	return;
 }
 
@@ -265,7 +406,6 @@ main(int argc, char *argv[])
 	ev_signal sighup_watcher[1];
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
-	ev_check chck[1];
 	/* final result */
 	int res = 0;
 
@@ -307,26 +447,29 @@ main(int argc, char *argv[])
 	ev_signal_init(sighup_watcher, sigall_cb, SIGHUP);
 	ev_signal_start(EV_A_ sighup_watcher);
 
+	/* get the queues ready */
+	ctx->pq = make_pfaq();
+
+	/* prepare the context and the tws */
+	ctx->tws->post_cb = post_cb;
+	ctx->tws->infra_cb = infra_cb;
+
 	/* prepare for hard slavery */
 	prep->data = ctx;
 	ev_prepare_init(prep, prep_cb);
 	ev_prepare_start(EV_A_ prep);
-
-	chck->data = ctx;
-	ev_check_init(chck, chck_cb);
-	ev_check_start(EV_A_ chck);
 
 	/* now wait for events to arrive */
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
 	ev_prepare_stop(EV_A_ prep);
-	ev_check_stop(EV_A_ chck);
 
-	/* get rid of the tws intrinsics */
-	PF_DEBUG("FINI\n");
-	(void)fini_tws(ctx->tws);
-	reco_cb(EV_A_ NULL, 0);
+	/* propagate tws shutdown and resource freeing */
+	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
+
+	/* don't need the queue no more do we */
+	free_pfaq(ctx->pq);
 
 	/* free uri resources */
 	free_uri(ctx->uri);
