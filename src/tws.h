@@ -275,6 +275,14 @@ extern tws_oid_t tws_sub_quo_cont(tws_t, tws_const_cont_t c);
  * Unsubscribe from quote update. */
 extern int tws_rem_quo(tws_t, tws_oid_t);
 
+/**
+ * Subscribe to portfolio and account events. */
+extern int tws_sub_ac(tws_t, const char*);
+
+/**
+ * Unsubscribe from portfolio and account events. */
+extern int tws_rem_ac(tws_t, const char*);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */

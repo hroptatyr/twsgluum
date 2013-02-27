@@ -839,4 +839,22 @@ tws_rem_quo(tws_t tws, tws_oid_t oid)
 	return __sock_ok_p(tws);
 }
 
+int
+tws_sub_ac(tws_t tws, const char *ac)
+{
+	IB::IBString name = std::string(ac ?: "");
+
+	TWS_PRIV_CLI(tws)->reqAccountUpdates(true, name);
+	return __sock_ok_p(tws);
+}
+
+int
+tws_rem_ac(tws_t tws, const char *ac)
+{
+	IB::IBString name = std::string(ac ?: "");
+
+	TWS_PRIV_CLI(tws)->reqAccountUpdates(false, name);
+	return __sock_ok_p(tws);
+}
+
 /* tws.cpp ends here */
