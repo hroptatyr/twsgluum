@@ -248,9 +248,6 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 		}
 		break;
 
-	case TX_TAG_RMETA:
-		break;
-
 	case TX_TAG_QMETA:
 		/* get all them metas */
 		for (const char **ap = attr; ap && *ap; ap += 2) {
