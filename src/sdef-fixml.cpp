@@ -46,6 +46,7 @@
 #include "proto-fixml-attr.h"
 #include "proto-fixml-tag.h"
 #include "sdef-private.h"
+#include "sdef-seria.h"
 
 #if defined DEBUG_FLAG
 # define TX_DEBUG(args...)	logger(args)
