@@ -65,10 +65,13 @@ quo_tws_LDADD += $(quo_tws_LDFLAGS)
 
 bin_PROGRAMS += pf-tws
 pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
+EXTRA_pf_tws_SOURCES =
 BUILT_SOURCES += pf-tws-clo.c pf-tws-clo.h
 pf_tws_SOURCES += tws.cpp tws.h
 pf_tws_SOURCES += logger.c logger.h
 pf_tws_SOURCES += daemonise.c daemonise.h
+EXTRA_pf_tws_SOURCES += tws-uri.c tws-uri.h
+EXTRA_pf_tws_SOURCES += tws-sock.c tws-sock.h
 pf_tws_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_PF
 pf_tws_CPPFLAGS += $(twsapi_CFLAGS)
 pf_tws_CPPFLAGS += $(libev_CFLAGS)

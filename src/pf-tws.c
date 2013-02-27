@@ -54,7 +54,6 @@
 #endif	/* HAVE_EV_H */
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <netdb.h>
 #include <sys/utsname.h>
 
 /* the tws api */
@@ -63,6 +62,8 @@
 #include "daemonise.h"
 #include "tws.h"
 #include "nifty.h"
+#include "tws-uri.h"
+#include "tws-sock.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -83,50 +84,13 @@ typedef struct ctx_s *ctx_t;
 struct ctx_s {
 	struct tws_s tws[1];
 
-	/* static context */
-	const char *host;
-	uint16_t port;
-	int client;
+	/* parsed up uri string */
+	struct tws_uri_s uri[1];
 };
 
 
-/* sock helpers, should be somwhere else */
-static int
-tws_sock(const char *host, short unsigned int port)
-{
-	static char pstr[32];
-	struct addrinfo *aires;
-	struct addrinfo hints = {0};
-	int s = -1;
-
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = 0;
-#if defined AI_ADDRCONFIG
-	hints.ai_flags |= AI_ADDRCONFIG;
-#endif	/* AI_ADDRCONFIG */
-#if defined AI_V4MAPPED
-	hints.ai_flags |= AI_V4MAPPED;
-#endif	/* AI_V4MAPPED */
-	hints.ai_protocol = 0;
-
-	/* port number as string */
-	snprintf(pstr, sizeof(pstr) - 1, "%hu", port);
-
-	if (getaddrinfo(host, pstr, &hints, &aires) < 0) {
-		goto out;
-	}
-	/* now try them all */
-	for (const struct addrinfo *ai = aires;
-	     ai != NULL &&
-		     ((s = socket(ai->ai_family, ai->ai_socktype, 0)) < 0 ||
-		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
-	     close(s), s = -1, ai = ai->ai_next);
-
-out:
-	freeaddrinfo(aires);
-	return s;
-}
+#include "tws-uri.c"
+#include "tws-sock.c"
 
 
 static void
@@ -170,6 +134,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	static ev_io twsc[1];
 	ctx_t ctx;
 	int s;
+	int cli;
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
@@ -179,7 +144,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	}
 	/* otherwise proceed normally */
 	ctx = w->data;
-	if ((s = tws_sock(ctx->host, ctx->port)) < 0) {
+	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
 	}
@@ -189,7 +154,10 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
 
-	if (UNLIKELY(init_tws(ctx->tws, s, ctx->client) < 0)) {
+	if (UNLIKELY((cli = ctx->uri->cli) <= 0)) {
+		cli = time(NULL);
+	}
+	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
 		PF_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
@@ -311,23 +279,10 @@ main(int argc, char *argv[])
 	}
 
 	/* snarf host name and port */
-	if (argi->tws_host_given) {
-		ctx->host = argi->tws_host_arg;
+	if (argi->tws_given) {
+		*ctx->uri = make_uri(argi->tws_arg);
 	} else {
-		ctx->host = "localhost";
-	}
-	if (argi->tws_port_given) {
-		ctx->port = (uint16_t)argi->tws_port_arg;
-	} else {
-		ctx->port = (uint16_t)7474;
-	}
-	if (argi->tws_client_id_given) {
-		ctx->client = argi->tws_client_id_arg;
-	} else {
-		struct timeval now[1];
-
-		(void)gettimeofday(now, NULL);
-		ctx->client = now->tv_sec;
+		*ctx->uri = make_uri("localhost");
 	}
 
 	/* initialise the main loop */
@@ -372,6 +327,9 @@ main(int argc, char *argv[])
 	PF_DEBUG("FINI\n");
 	(void)fini_tws(ctx->tws);
 	reco_cb(EV_A_ NULL, 0);
+
+	/* free uri resources */
+	free_uri(ctx->uri);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
