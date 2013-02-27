@@ -408,6 +408,9 @@ tws_cont_nick(tws_const_cont_t cont)
 	const char *sym;
 	const char *ccy;
 
+	if (*xch == '\0') {
+		xch = c->primaryExchange.c_str();
+	}
 	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
 		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
 	} else if (cid) {
