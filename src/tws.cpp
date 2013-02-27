@@ -489,6 +489,7 @@ __wrapper::updateAccountValue(
 		cont.secType = cash_sectyp;
 		cont.symbol = ccy;
 		cont.currency = ccy;
+		cont.localSymbol = ccy;
 		cont.primaryExchange = cash_exch;
 		// prepare the closure
 		clo->ac_name = ca;
