@@ -186,18 +186,6 @@ proc_QMETA_attr(
 		/* we use the comboLegsDescrip field for our nicks */
 		sr->nick = strdup(val);
 		break;
-	default:
-		break;
-	}
-	return;
-}
-
-static void
-proc_RMETA_attr(
-	struct tws_sreq_s *sr, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
-{
-
-	switch ((tws_xml_aid_t)aid) {
 	case TX_ATTR_TWS:
 		sr->tws = strdup(val);
 		break;
@@ -261,13 +249,6 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 		break;
 
 	case TX_TAG_RMETA:
-		/* get all them metas */
-		for (const char **ap = attr; ap && *ap; ap += 2) {
-			const tws_xml_aid_t aid = check_tx_attr(ctx, ap[0]);
-
-			proc_RMETA_attr(
-				ctx->next, TX_NS_TWSXML_0_1, aid, ap[1]);
-		}
 		break;
 
 	case TX_TAG_QMETA:
