@@ -82,6 +82,7 @@
 #include "websvc.h"
 #include "nifty.h"
 #include "ud-sock.h"
+#include "tws-uri.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -99,13 +100,6 @@
 
 typedef struct ctx_s *ctx_t;
 
-struct tws_uri_s {
-	char *str;
-	int cli;
-	const char *h;
-	const char *p;
-};
-
 struct ctx_s {
 	struct tws_s tws[1];
 
@@ -122,6 +116,8 @@ struct ctx_s {
 
 	ud_sock_t beef;
 };
+
+#include "tws-uri.c"
 
 
 /* sock helpers, should be somwhere else */
@@ -206,43 +202,6 @@ tws_sock(const struct tws_uri_s uri[static 1])
 out:
 	freeaddrinfo(aires);
 	return s;
-}
-
-static struct tws_uri_s
-make_uri(const char *uri)
-{
-	struct tws_uri_s res;
-	char *h;
-	char *p;
-
-	/* firstly so we operate on a copy of URI */
-	res.str = strdup(uri);
-
-	/* fix up host */
-	if ((h = strchr(res.str, '@')) == NULL) {
-		res.h = res.str;
-		res.cli = 0;
-	} else {
-		*h++ = '\0';
-		res.h = h;
-		res.cli = atoi(res.str);
-	}
-
-	/* port number as string */
-	if ((p = strchr(res.h, ':')) == NULL) {
-		res.p = "7474";
-	} else {
-		*p++ = '\0';
-		res.p = p;
-	}
-	return res;
-}
-
-static void
-free_uri(struct tws_uri_s uri[static 1])
-{
-	free(uri->str);
-	return;
 }
 
 
