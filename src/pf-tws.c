@@ -55,6 +55,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
+#include <arpa/inet.h>
 #include <unserding/unserding.h>
 
 /* the tws api */
@@ -69,6 +70,7 @@
 #include "nifty.h"
 #include "tws-uri.h"
 #include "tws-sock.h"
+#include "strops.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -109,28 +111,211 @@ struct ctx_s {
 #include "tws-sock.c"
 
 
-static void
-um_pack_pr(ud_sock_t where, const char *what)
+/* helpers */
+static int
+um_pack_pr(ud_sock_t where, const char *what, size_t whaz)
 {
 /* one day might go back to unsermarkt */
-	return;
+#define POS_RPT_REQ	(0x757aU)
+#define POS_RPT_RSP	(0x757bU)
+
+	return ud_pack_msg(
+		where, (struct ud_msg_s){
+			.svc = POS_RPT_RSP,
+			.data = what,
+			.dlen = whaz,
+		});
 }
 
-static void
-pq_flush_cb(struct pfa_s p, ud_sock_t beef)
+static uint8_t
+fix_chksum(const char *str, size_t len)
 {
-	const char *pr;
+	int res = 0;
+	for (const char *p = str, *ep = str + len; p < ep; res += *p++);
+	return (uint8_t)res;
+}
+
+
+struct flush_clo_s {
+	ud_sock_t beef;
+	char dt[24];
+	const char *src;
+	const char *tgt;
+};
+
+static void
+pq_flush_cb(struct pfa_s pos, struct flush_clo_s *clo)
+{
+#define SOH		"\001"
+	static const char fix_stdhdr[] = "8=FIXT.1.1" SOH "9=0000" SOH;
+	static const char fix_stdftr[] = "10=xyz" SOH;
+	static size_t sno = 0U;
+	static char buf[1280U];
+	const char *ep = buf + sizeof(buf);
+	char *p = buf;
+
+/* unsafe BANG */
+#define __BANG(tgt, eot, src, ssz)		\
+	{					\
+		size_t __ssz = ssz;		\
+		memcpy(tgt, src, __ssz);	\
+		tgt += __ssz;			\
+	}
+#define BANGP(tgt, eot, p)			\
+	__BANG(tgt, eot, p, strlen(p))
+#define BANGL(tgt, eot, literal)			\
+	__BANG(tgt, eot, literal, sizeof(literal) - 1)
+
+	/* start with a standard header */
+	BANGL(p, ep, fix_stdhdr);
+	/* message type */
+	BANGL(p, ep, "35=AP" SOH);
+
+	/* sender */
+	BANGL(p, ep, "49=");
+	BANGP(p, ep, clo->src);
+	*p++ = *SOH;
+	/* recipient */
+	BANGL(p, ep, "56=");
+	BANGP(p, ep, clo->tgt);
+	*p++ = *SOH;
+	/* seqno */
+	BANGL(p, ep, "34=");
+	p += ui32tostr(p, ep - p, sno);
+	*p++ = *SOH;
+
+	/* sending time */
+	BANGL(p, ep, "52=");
+	BANGP(p, ep, clo->dt);
+	*p++ = *SOH;
+
+	/* report id */
+	BANGL(p, ep, "721=r");
+	p += ui32tostr(p, ep - p, sno);
+	*p++ = *SOH;
+
+	/* clearing bizdate */
+	BANGL(p, ep, "715=");
+	__BANG(p, ep, clo->dt, 8);
+	*p++ = *SOH;
+	/* #ptys */
+	BANGL(p, ep, "453=0" SOH);
+	/* ac name */
+	BANGL(p, ep, "1=");
+	BANGP(p, ep, pos.ac);
+	*p++ = *SOH;
+
+	/* instr name */
+	BANGL(p, ep, "55=");
+	BANGP(p, ep, pos.sym);
+	*p++ = *SOH;
+
+	/* #positions */
+	BANGL(p, ep, "702=1" SOH);
+	/* position type */
+	BANGL(p, ep, "703=TOT" SOH);
+	/* qty long */
+	BANGL(p, ep, "704=");
+	p += snprintf(p, ep - p, "%.4f", pos.lqty);
+	*p++ = *SOH;
+	/* qty short */
+	BANGL(p, ep, "705=");
+	p += snprintf(p, ep - p, "%.4f", pos.sqty);
+	*p++ = *SOH;
+
+	/* qty status */
+	BANGL(p, ep, "706=0" SOH);
+	/* qty date */
+	BANGL(p, ep, "976=");
+	__BANG(p, ep, clo->dt, 8);
+	*p++ = *SOH;
+
+	/* get the length so far and print it */
+	{
+		size_t plen;
+		uint8_t chksum;
+
+		plen = p - buf - (sizeof(fix_stdhdr) - 1);
+		ui16tostr_pad(buf + 13, 4, plen, 4);
+
+		/* compute the real plen now */
+		plen = p - buf;
+		chksum = fix_chksum(buf, plen);
+		BANGL(p, ep, fix_stdftr);
+		ui8tostr_pad(p - 4, ep - p, chksum, 3);
+	}
+	*p = '\0';
+
+	/* up the serial */
+	sno++;
 
 	/* stuff him up the socket's sleeve */
-	um_pack_pr(beef, pr);
+	um_pack_pr(clo->beef, buf, p - buf);
+
+#if !defined BENCHMARK && defined DEBUG_FLAG
+	/* quickly massage the string suitable for printing */
+	for (char *q = buf; q < p; q++) {
+		if (*q == *SOH) {
+			*q = '|';
+		}
+	}
+	puts(buf);
+#endif	/* !BENCHMARK && DEBUG_FLAG */
 	return;
 }
 
 static void
 pfaq_flush(ctx_t ctx)
 {
+	static char src[INET6_ADDRSTRLEN];
+	static char tgt[INET6_ADDRSTRLEN];
+	struct flush_clo_s clo = {
+		.beef = ctx->beef,
+		.src = src,
+		.tgt = tgt,
+	};
+
+	/* construct source and target */
+	if (UNLIKELY(*src == '\0')) {
+		/* singleton */
+		size_t hz = strlen(ctx->uri->h);
+
+		memcpy(src, ctx->uri->h, hz);
+		src[hz++] = ':';
+		strncpy(src + hz, ctx->uri->p, sizeof(src) - hz);
+	}
+
+	if (UNLIKELY(*tgt == '\0')) {
+		const struct sockaddr *x = ud_socket_addr(ctx->beef);
+		const struct sockaddr_in6 *x6 = (const void*)x;
+		size_t z;
+
+		tgt[0] = '[';
+		inet_ntop(AF_INET6, &x6->sin6_addr, tgt + 1, sizeof(tgt) - 2U);
+		z = strlen(tgt);
+		tgt[z++] = ']';
+		tgt[z++] = ':';
+		z += ui16tostr(tgt + z, sizeof(tgt) - z, ntohs(x6->sin6_port));
+		tgt[z] = '\0';
+	}
+
+	/* what's the time */
+	{
+		struct timeval now[1];
+		struct tm *tm;
+		uint16_t msec;
+		size_t z;
+
+		gettimeofday(now, NULL);
+		tm = gmtime(&now->tv_sec);
+		z = strftime(clo.dt, sizeof(clo.dt), "%Y%m%d-%H:%M:%S.", tm);
+		msec = now->tv_usec / 1000U;
+		ui16tostr_pad(clo.dt + z, sizeof(clo.dt) - z, msec, 3);
+		clo.dt[z + 3] = '\0';
+	}
+
 	/* get the packet ctor'd */
-	pfaq_flush_cb(ctx->pq, (void(*)())pq_flush_cb, ctx->beef);
+	pfaq_flush_cb(ctx->pq, (void(*)())pq_flush_cb, &clo);
 
 	/* make sure nothing gets buffered */
 	ud_flush(ctx->beef);

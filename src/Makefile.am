@@ -74,6 +74,7 @@ pf_tws_SOURCES += sdef.c sdef.h sdef-private.h sdef-seria.h
 pf_tws_SOURCES += sdef-twsxml.cpp
 pf_tws_SOURCES += sdef-fixml.cpp
 pf_tws_SOURCES += pfa.c pfa.h
+pf_tws_SOURCES += strops.h
 EXTRA_pf_tws_SOURCES += tws-uri.c tws-uri.h
 EXTRA_pf_tws_SOURCES += tws-sock.c tws-sock.h
 pf_tws_CPPFLAGS = $(AM_CPPFLAGS) -DSDEF_WRONLY
