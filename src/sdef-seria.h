@@ -37,6 +37,8 @@
 #if !defined INCLUDED_sdef_seria_h_
 #define INCLUDED_sdef_seria_h_
 
+#include "sdef.h"
+
 #if defined __cplusplus
 extern "C" {
 # if defined __GNUC__
