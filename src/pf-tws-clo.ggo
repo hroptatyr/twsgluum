@@ -21,17 +21,9 @@ option "beef" -
 	int optional
 
 section "TWS options"
-option "tws-host" -
-	"Host where the TWS is running (default: localhost)"
-	string typestr="HOSTNAME" optional
-
-option "tws-port" -
-	"Port number of the TWS (default: 7474)"
-	int typestr="PORT" optional
-
-option "tws-client-id" -
-	"TWS client connection id (default: current unix time)"
-	int optional
+option "tws" -
+	"client@host:port where the TWS is running (default: localhost:7474)"
+	string typestr="URI" optional
 
 option "tws-arccount" -
 	"TWS account name for multi-account set ups"

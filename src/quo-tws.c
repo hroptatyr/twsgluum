@@ -56,7 +56,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 #include <sys/utsname.h>
 #include <unserding/unserding.h>
 #if defined HAVE_UTERUS_UTERUS_H
@@ -81,7 +80,8 @@
 #include "sdef.h"
 #include "websvc.h"
 #include "nifty.h"
-#include "ud-sock.h"
+#include "tws-uri.h"
+#include "tws-sock.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:981)
@@ -98,13 +98,6 @@
 #endif	/* DEBUG_FLAG */
 
 typedef struct ctx_s *ctx_t;
-
-struct tws_uri_s {
-	char *str;
-	int cli;
-	const char *h;
-	const char *p;
-};
 
 struct ctx_s {
 	struct tws_s tws[1];
@@ -124,126 +117,8 @@ struct ctx_s {
 };
 
 
-/* sock helpers, should be somwhere else */
-static int
-make_dccp(void)
-{
-	int s;
-
-	if ((s = socket(AF_INET6, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
-		return s;
-	}
-	/* mark the address as reusable */
-	setsock_reuseaddr(s);
-	/* impose a sockopt service, we just use 1 for now */
-	set_dccp_service(s, 1);
-	/* make a timeout for the accept call below */
-	setsock_rcvtimeo(s, 1000);
-	/* make socket non blocking */
-	setsock_nonblock(s);
-	/* turn off nagle'ing of data */
-	setsock_nodelay(s);
-	return s;
-}
-
-static int
-make_tcp(void)
-{
-	int s;
-
-	if ((s = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-		return s;
-	}
-	/* reuse addr in case we quickly need to turn the server off and on */
-	setsock_reuseaddr(s);
-	/* turn lingering on */
-	setsock_linger(s, 1);
-	return s;
-}
-
-static int
-sock_listener(int s, struct sockaddr_in6 *sa)
-{
-	if (s < 0) {
-		return s;
-	}
-
-	if (bind(s, (struct sockaddr*)sa, sizeof(*sa)) < 0) {
-		return -1;
-	}
-
-	return listen(s, MAX_DCCP_CONNECTION_BACK_LOG);
-}
-
-static int
-tws_sock(const struct tws_uri_s uri[static 1])
-{
-	struct addrinfo *aires;
-	struct addrinfo hints = {0};
-	int s = -1;
-
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = 0;
-#if defined AI_ADDRCONFIG
-	hints.ai_flags |= AI_ADDRCONFIG;
-#endif	/* AI_ADDRCONFIG */
-#if defined AI_V4MAPPED
-	hints.ai_flags |= AI_V4MAPPED;
-#endif	/* AI_V4MAPPED */
-	hints.ai_protocol = 0;
-
-	if (getaddrinfo(uri->h, uri->p, &hints, &aires) < 0) {
-		goto out;
-	}
-	/* now try them all */
-	for (const struct addrinfo *ai = aires;
-	     ai != NULL &&
-		     ((s = socket(ai->ai_family, ai->ai_socktype, 0)) < 0 ||
-		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
-	     close(s), s = -1, ai = ai->ai_next);
-
-out:
-	freeaddrinfo(aires);
-	return s;
-}
-
-static struct tws_uri_s
-make_uri(const char *uri)
-{
-	struct tws_uri_s res;
-	char *h;
-	char *p;
-
-	/* firstly so we operate on a copy of URI */
-	res.str = strdup(uri);
-
-	/* fix up host */
-	if ((h = strchr(res.str, '@')) == NULL) {
-		res.h = res.str;
-		res.cli = 0;
-	} else {
-		*h++ = '\0';
-		res.h = h;
-		res.cli = atoi(res.str);
-	}
-
-	/* port number as string */
-	if ((p = strchr(res.h, ':')) == NULL) {
-		res.p = "7474";
-	} else {
-		*p++ = '\0';
-		res.p = p;
-	}
-	return res;
-}
-
-static void
-free_uri(struct tws_uri_s uri[static 1])
-{
-	free(uri->str);
-	return;
-}
+#include "tws-uri.c"
+#include "tws-sock.c"
 
 
 /* unserding goodies */
@@ -756,7 +631,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	}
 	/* otherwise proceed normally */
 	ctx = w->data;
-	if ((s = tws_sock(ctx->uri)) < 0) {
+	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
 	}
@@ -1017,7 +892,7 @@ main(int argc, char *argv[])
 		socklen_t sa_len = sizeof(sa);
 		int s;
 
-		if ((s = make_dccp()) < 0) {
+		if ((s = make_dccp_sock()) < 0) {
 			/* just to indicate we have no socket */
 			dccp[0].fd = -1;
 		} else if (sock_listener(s, &sa) < 0) {
@@ -1049,7 +924,7 @@ main(int argc, char *argv[])
 
 		if (countof(dccp) < 2) {
 			;
-		} else if ((s = make_tcp()) < 0) {
+		} else if ((s = make_tcp_sock()) < 0) {
 			/* just to indicate we have no socket */
 			dccp[1].fd = -1;
 		} else if (sock_listener(s, &sa) < 0) {

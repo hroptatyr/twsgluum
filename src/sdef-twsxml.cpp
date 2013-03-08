@@ -42,11 +42,14 @@
 #include "logger.h"
 #include <twsapi/Contract.h>
 
-#include "proto-tx-ns.h"
-#include "proto-twsxml-attr.h"
-#include "proto-twsxml-tag.h"
-#include "proto-twsxml-reqtyp.h"
-#include "sdef-private.h"
+#if !defined SDEF_WRONLY
+# include "proto-tx-ns.h"
+# include "proto-twsxml-attr.h"
+# include "proto-twsxml-tag.h"
+# include "proto-twsxml-reqtyp.h"
+# include "sdef-private.h"
+#endif	/* !SDEF_WRONLY */
+#include "sdef-seria.h"
 
 #if defined DEBUG_FLAG
 # define TX_DEBUG(args...)	logger(args)
@@ -64,9 +67,11 @@
 # undef __GNUC_STDC_INLINE__
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 
-#include "proto-twsxml-attr.c"
-#include "proto-twsxml-tag.c"
-#include "proto-twsxml-reqtyp.c"
+#if !defined SDEF_WRONLY
+# include "proto-twsxml-attr.c"
+# include "proto-twsxml-tag.c"
+# include "proto-twsxml-reqtyp.c"
+#endif  /* !SDEF_WRONLY */
 
 #if defined __INTEL_COMPILER
 # pragma warning (default:869)
@@ -76,13 +81,8 @@
 #endif	/* __INTEL_COMPILER || __GNUC_STDC_INLINE__ */
 #endif	/* HAVE_GPERF */
 
-struct req_s {
-	const char *tws;
-	tws_cont_t c;
-	const char *nick;
-};
-
 
+#if !defined SDEF_WRONLY
 static tws_xml_aid_t
 __tx_aid_from_attr_l(const char *attr, size_t len)
 {
@@ -186,18 +186,6 @@ proc_QMETA_attr(
 		/* we use the comboLegsDescrip field for our nicks */
 		sr->nick = strdup(val);
 		break;
-	default:
-		break;
-	}
-	return;
-}
-
-static void
-proc_RMETA_attr(
-	struct tws_sreq_s *sr, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
-{
-
-	switch ((tws_xml_aid_t)aid) {
 	case TX_ATTR_TWS:
 		sr->tws = strdup(val);
 		break;
@@ -257,16 +245,6 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 			void *sr = calloc(1, sizeof(*ctx->next));
 			ctx->next = (struct tws_sreq_s*)sr;
 			ctx->sreq = (tws_sreq_t)sr;
-		}
-		break;
-
-	case TX_TAG_RMETA:
-		/* get all them metas */
-		for (const char **ap = attr; ap && *ap; ap += 2) {
-			const tws_xml_aid_t aid = check_tx_attr(ctx, ap[0]);
-
-			proc_RMETA_attr(
-				ctx->next, TX_NS_TWSXML_0_1, aid, ap[1]);
 		}
 		break;
 
@@ -370,6 +348,7 @@ parse_req_typ(const char *typ)
 
 	return rtc->rtid;
 }
+#endif  /* !SDEF_WRONLY */
 
 
 /* other stuff that has no better place */
@@ -429,6 +408,9 @@ tws_cont_nick(tws_const_cont_t cont)
 	const char *sym;
 	const char *ccy;
 
+	if (*xch == '\0') {
+		xch = c->primaryExchange.c_str();
+	}
 	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
 		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
 	} else if (cid) {

@@ -481,12 +481,16 @@ __wrapper::updateAccountValue(
 		static struct tws_post_acup_clo_s clo[1];
 		static IB::Contract cont;
 		static IB::IBString cash_sectyp = std::string("CASH");
+		static IB::IBString cash_exch = std::string("IDEALPRO");
 		const char *ca = acn.c_str();
 		const char *cv = val.c_str();
 
 		// contract with just the currency field set
 		cont.secType = cash_sectyp;
+		cont.symbol = ccy;
 		cont.currency = ccy;
+		cont.localSymbol = ccy;
+		cont.primaryExchange = cash_exch;
 		// prepare the closure
 		clo->ac_name = ca;
 		clo->cont = &cont;
@@ -836,6 +840,24 @@ int
 tws_rem_quo(tws_t tws, tws_oid_t oid)
 {
 	TWS_PRIV_CLI(tws)->cancelMktData((IB::TickerId)oid);
+	return __sock_ok_p(tws);
+}
+
+int
+tws_sub_ac(tws_t tws, const char *ac)
+{
+	IB::IBString name = std::string(ac ?: "");
+
+	TWS_PRIV_CLI(tws)->reqAccountUpdates(true, name);
+	return __sock_ok_p(tws);
+}
+
+int
+tws_rem_ac(tws_t tws, const char *ac)
+{
+	IB::IBString name = std::string(ac ?: "");
+
+	TWS_PRIV_CLI(tws)->reqAccountUpdates(false, name);
 	return __sock_ok_p(tws);
 }
 
