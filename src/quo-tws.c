@@ -172,7 +172,7 @@ make_brag_uri(int sock, struct sockaddr_in6 *sa, socklen_t sz)
 		uts->nodename, dnsdom, p);
 
 	brag_uri_offset = curs - brag_uri;
-	QUO_DEBUG("ADVN  %s\n", brag_uri);
+	logger("ADVN  %s", brag_uri);
 	return 0;
 }
 
@@ -282,17 +282,17 @@ infra_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_infra_clo_s clo)
 /* called from tws api for infra messages */
 	switch (what) {
 	case TWS_CB_INFRA_ERROR:
-		logger("NFRA  oid %u  code %u: %s\n",
+		logger("NFRA  oid %u  code %u: %s",
 			clo.oid, clo.code, (const char*)clo.data);
 		break;
 	case TWS_CB_INFRA_CONN_CLOSED:
-		logger("NFRA  connection closed\n");
+		logger("NFRA  connection closed");
 		break;
 	case TWS_CB_INFRA_READY:
-		logger("NFRA  RDY\n");
+		logger("NFRA  RDY");
 		break;
 	default:
-		logger("NFRA  what %u  oid %u  code %u  data %p\n",
+		logger("NFRA  what %u  oid %u  code %u  data %p",
 			what, clo.oid, clo.code, clo.data);
 		break;
 	}
@@ -343,7 +343,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	}
 
 	case TWS_CB_PRE_CONT_DTL:
-		QUO_DEBUG("SDEF  %u %p\n", clo.oid, clo.data);
+		logger("SDEF  %u %p", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
 			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
@@ -362,7 +362,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 				subq_add(((ctx_t)tws)->sq, t);
 			} else {
 				/* unsub that old guy, sub the new one */
-				QUO_DEBUG("USUB  %u rplcs %u\n", idx, s->idx);
+				logger("USUB  %u rplcs %u", idx, s->idx);
 				tws_rem_quo(tws, s->idx);
 				s->idx = idx;
 				/* change sdef slot (for the better?) */
@@ -384,7 +384,7 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 
 	default:
 	fucked:
-		QUO_DEBUG("FUCK  PRE  what %u  oid %u  tt %u  data %p\n",
+		logger("FUCK  PRE  what %u  oid %u  tt %u  data %p",
 			what, clo.oid, clo.tt, clo.data);
 		break;
 	}
@@ -402,7 +402,7 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
 	struct sub_s s;
 	tws_cont_t ins = sr->c;
 
-	QUO_DEBUG("SUBC  %p\n", ins);
+	logger("SUBC  %p", ins);
 	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
 		logger("cannot subscribe to quotes of %p", ins);
 	} else if (!(s.sreq = tws_req_sdef(tws, ins))) {
@@ -425,7 +425,7 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
 	subq_add(((ctx_t)tws)->sq, s);
 
 	/* just to have some more juice to work with */
-	QUO_DEBUG("SUBC  NICK %s  SQUO %u  SREQ %u\n", s.nick, s.idx, s.sreq);
+	logger("SUBC  NICK %s  SQUO %u  SREQ %u", s.nick, s.idx, s.sreq);
 
 	/* indicate that we don't need INS any longer */
 	return 1;
@@ -450,7 +450,7 @@ init_subs(tws_t tws, const char *file)
 	} else {
 		tws_sreq_t sr = tws_deser_sreq(fp, fsz);
 
-		QUO_DEBUG("SUBS  %p\n", sr);
+		logger("SUBS  %p", sr);
 		for (tws_sreq_t s = sr; s; s = s->next) {
 			__sub_sdef(tws, s);
 		}
@@ -464,12 +464,12 @@ static void
 sq_chuck_cb(struct sub_s s, void *UNUSED(clo))
 {
 	if (UNLIKELY(s.sdef == NULL)) {
-		QUO_DEBUG("SDEF  NO GIVEE :O\n");
+		logger("SDEF  NO GIVEE :O");
 	} else {
 		tws_free_sdef(s.sdef);
 	}
 	if (UNLIKELY(s.nick == NULL)) {
-		QUO_DEBUG("NICK  NO GIVEE :O\n");
+		logger("NICK  NO GIVEE :O");
 	} else {
 		free(s.nick);
 	}
@@ -602,7 +602,7 @@ twsc_cb(EV_P_ ev_io w[static 1], int rev)
 		w->fd = -1;
 		w->data = NULL;
 		/* we should set a timer here for retrying */
-		QUO_DEBUG("AXAX  scheduling reconnect\n");
+		logger("AXAX  scheduling reconnect");
 		return;
 	}
 	/* otherwise go ahead and read things */
@@ -621,7 +621,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
-		QUO_DEBUG("FINI  %d\n", twsc->fd);
+		logger("FINI  %d", twsc->fd);
 		/* call that twsc watcher manually to free subq resources
 		 * mainloop isn't running any more */
 		twsc_cb(EV_A_ twsc, EV_CUSTOM);
@@ -645,7 +645,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		return;
 	}
 
-	QUO_DEBUG("CONN  %d\n", s);
+	logger("CONN  %d", s);
 	twsc->data = ctx;
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
@@ -654,7 +654,7 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		cli = time(NULL);
 	}
 	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
-		QUO_DEBUG("DOWN  %d\n", s);
+		logger("DOWN  %d", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
@@ -686,7 +686,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
-			QUO_DEBUG("SUBS\n");
+			logger("SUBS");
 			for (unsigned int i = 0; i < ctx->nsubf; i++) {
 				init_subs(ctx->tws, ctx->subf[i]);
 			}
@@ -698,7 +698,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		quoq_flush_maybe(ctx);
 		break;
 	default:
-		QUO_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		logger("unknown state: %u", tws_state(ctx->tws));
 		abort();
 	}
 
@@ -718,14 +718,14 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 	if (UNLIKELY(w == NULL)) {
 		for (size_t i = 0; i < countof(conns); i++) {
 			if (conns[i].io->fd > 0) {
-				QUO_DEBUG("FINI  dccp/%d\n", conns[i].io->fd);
+				logger("FINI  dccp/%d", conns[i].io->fd);
 				ev_io_shut(EV_A_ conns[i].io);
 			}
 		}
 		return;
 	}
 
-	QUO_DEBUG("DCCP  %d\n", w->fd);
+	logger("DCCP  %d", w->fd);
 
 	/* make way for this request */
 	if (conns[next].io->fd > 0) {
@@ -753,14 +753,14 @@ beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
 	static char junk[1];
 
 	(void)recv(w->fd, junk, sizeof(junk), MSG_TRUNC);
-	QUO_DEBUG("JUNK\n");
+	logger("JUNK");
 	return;
 }
 
 static void
 sighup_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
-	QUO_DEBUG("HUP!\n");
+	logger("HUP!");
 	/* just act as though we're going down */
 	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
 	/* HUP the logfile */
@@ -772,7 +772,7 @@ static void
 sigusr1_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 /* for log rotation only */
-	QUO_DEBUG("USR1\n");
+	logger("USR1");
 	/* HUP the logfile */
 	rotate_logerr();
 	return;
@@ -782,7 +782,7 @@ static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
-	QUO_DEBUG("UNLO\n");
+	logger("UNLO");
 	return;
 }
 
@@ -966,7 +966,7 @@ main(int argc, char *argv[])
 	ev_loop(EV_A_ 0);
 
 	/* cancel them timers and stuff */
-	QUO_DEBUG("FINI\n");
+	logger("FINI");
 	ev_prepare_stop(EV_A_ prep);
 
 	/* propagate tws shutdown and resource freeing */
