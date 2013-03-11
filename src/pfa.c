@@ -90,6 +90,7 @@ make_pqq(pfaq_t pq)
 		assert(pq->q->free->ilst == NULL);
 		PFA_DEBUG("RESZ  PQ  ->+%u\n", 256U);
 		init_gq(pq->q, 256U, sizeof(*res));
+		PFA_DEBUG("RESZ  PQ  ->%zu\n", pq->q->nitems / sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(pq->q->free);

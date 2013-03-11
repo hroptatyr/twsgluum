@@ -119,6 +119,7 @@ make_qqq(quoq_t qq)
 		assert(qq->q->free->ilst == NULL);
 		QUO_DEBUG("RESZ  QQ  ->+%u\n", 64U);
 		init_gq(qq->q, 64U, sizeof(*res));
+		QUO_DEBUG("RESZ  QQ  ->%zu\n", qq->q->nitems / sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(qq->q->free);

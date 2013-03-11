@@ -85,6 +85,7 @@ make_qqq(subq_t sq)
 		assert(sq->q->free->ilst == NULL);
 		SUB_DEBUG("RESZ  SQ  ->+%u\n", 64U);
 		init_gq(sq->q, 64U, sizeof(*res));
+		SUB_DEBUG("RESZ  SQ  ->%zu\n", sq->q->nitems / sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(sq->q->free);
