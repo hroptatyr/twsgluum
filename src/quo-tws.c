@@ -628,9 +628,17 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		 * mainloop isn't running any more */
 		twsc_cb(EV_A_ twsc, EV_CUSTOM);
 		return;
-	} else if ((ctx = w->data, tws_state(ctx->tws)) > TWS_ST_DWN) {
+	}
+
+	switch ((ctx = w->data, tws_state(ctx->tws))) {
+	case TWS_ST_SUP:
+	case TWS_ST_RDY:
+	default:
 		/* connection is up and running */
 		return;
+	case TWS_ST_UNK:
+	case TWS_ST_DWN:
+		break;
 	}
 
 	/* otherwise proceed with the (re)connect */
