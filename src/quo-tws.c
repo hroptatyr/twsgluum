@@ -627,13 +627,13 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		/* call that twsc watcher manually to free subq resources
 		 * mainloop isn't running any more */
 		twsc_cb(EV_A_ twsc, EV_CUSTOM);
-		return;
+		goto stop;
 	}
 	/* otherwise proceed normally */
 	ctx = w->data;
 	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
-		return;
+		goto again;
 	}
 
 	QUO_DEBUG("CONN  %d\n", s);
@@ -647,11 +647,15 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
-		return;
+		goto again;
 	}
+stop:
 	/* and lastly, stop ourselves */
 	ev_timer_stop(EV_A_ w);
 	w->data = NULL;
+	return;
+again:
+	ev_timer_again(EV_A_ w);
 	return;
 }
 
