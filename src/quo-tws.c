@@ -677,12 +677,12 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	QUO_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
-	case TWS_ST_DWN:
 		if (reco->data == NULL) {
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
 			reco->data = ctx;
 		}
+	case TWS_ST_DWN:
 		/* let the reco timer do the work */
 		break;
 
