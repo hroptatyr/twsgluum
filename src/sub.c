@@ -82,11 +82,9 @@ make_qqq(subq_t sq)
 	sub_qqq_t res;
 
 	if (sq->q->free->i1st == NULL) {
-		size_t nitems = sq->q->nitems / sizeof(*res);
-
 		assert(sq->q->free->ilst == NULL);
-		SUB_DEBUG("RESZ  SQ  ->%zu\n", nitems + 64);
-		init_gq(sq->q, 64, sizeof(*res));
+		SUB_DEBUG("RESZ  SQ  ->+%u\n", 64U);
+		init_gq(sq->q, 64U, sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(sq->q->free);

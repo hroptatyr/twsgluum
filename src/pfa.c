@@ -87,10 +87,8 @@ make_pqq(pfaq_t pq)
 	pfa_pqq_t res;
 
 	if (pq->q->free->i1st == NULL) {
-		size_t nitems = pq->q->nitems / sizeof(*res);
-
 		assert(pq->q->free->ilst == NULL);
-		PFA_DEBUG("RESZ  PQ  ->%zu\n", nitems + 64);
+		PFA_DEBUG("RESZ  PQ  ->+%u\n", 256U);
 		init_gq(pq->q, 256U, sizeof(*res));
 	}
 	/* get us a new client and populate the object */
