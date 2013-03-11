@@ -629,8 +629,19 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		twsc_cb(EV_A_ twsc, EV_CUSTOM);
 		return;
 	}
-	/* otherwise proceed normally */
-	ctx = w->data;
+
+	switch ((ctx = w->data, tws_state(ctx->tws))) {
+	case TWS_ST_SUP:
+	case TWS_ST_RDY:
+	default:
+		/* connection is up and running */
+		return;
+	case TWS_ST_UNK:
+	case TWS_ST_DWN:
+		break;
+	}
+
+	/* otherwise proceed with the (re)connect */
 	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
@@ -649,9 +660,6 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
-	/* and lastly, stop ourselves */
-	ev_timer_stop(EV_A_ w);
-	w->data = NULL;
 	return;
 }
 
@@ -669,16 +677,15 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	QUO_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
-	case TWS_ST_DWN:
-		/* is there a timer already? */
 		if (reco->data == NULL) {
-			/* start the reconnection timer */
-			reco->data = ctx;
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
-			QUO_DEBUG("RECO\n");
+			reco->data = ctx;
 		}
+	case TWS_ST_DWN:
+		/* let the reco timer do the work */
 		break;
+
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
 			QUO_DEBUG("SUBS\n");
