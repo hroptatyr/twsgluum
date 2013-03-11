@@ -79,9 +79,6 @@ struct quo_qqq_s {
 	struct gq_item_s i;
 
 	struct quo_s q;
-#if defined ASPECT_QUO_AGE
-	uint32_t last_dsm;
-#endif	/* ASPECT_QUO_AGE */
 };
 
 struct quoq_s {
@@ -116,11 +113,10 @@ make_qqq(quoq_t qq)
 	quo_qqq_t res;
 
 	if (qq->q->free->i1st == NULL) {
-		size_t nitems = qq->q->nitems / sizeof(*res);
-
 		assert(qq->q->free->ilst == NULL);
-		QUO_DEBUG("RESZ  QQ  ->%zu\n", nitems + 64);
-		init_gq(qq->q, 64, sizeof(*res));
+		QUO_DEBUG("RESZ  QQ  ->+%u\n", 64U);
+		init_gq(qq->q, 64U, sizeof(*res));
+		QUO_DEBUG("RESZ  QQ  ->%zu\n", qq->q->nitems / sizeof(*res));
 	}
 	/* get us a new client and populate the object */
 	res = (void*)gq_pop_head(qq->q->free);
@@ -228,18 +224,7 @@ quoq_add(quoq_t qq, struct quo_s q)
 void
 quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 {
-#if defined ASPECT_QUO_AGE
-	struct timeval now[1];
-#endif	/* ASPECT_QUO_AGE */
-	struct quoq_cb_asp_s asp = {
-		.type = QUOQ_CB_FLUSH,
-	};
 	quo_qqq_t qi;
-
-#if defined ASPECT_QUO_AGE
-	/* time */
-	gettimeofday(now, NULL);
-#endif	/* ASPECT_QUO_AGE */
 
 	while ((qi = pop_qqq(qq)) != NULL) {
 		quo_qqq_t qp;
@@ -248,29 +233,16 @@ quoq_flush_cb(quoq_t qq, quoq_cb_f cb, void *clo)
 		QUO_DEBUG("FLSH  %u %u %u %u\n",
 			qi->q.idx, qi->q.typ, qi->q.p, qi->q.q);
 
-#if defined ASPECT_QUO_AGE
-		/* keep a note about dissemination */
-		qi->last_dsm = now->tv_sec;
-#endif	/* ASPECT_QUO_AGE */
-
 		/* find the cell in the pbuf */
 		if ((qp = find_p_cell(qq->pbuf, k)) != NULL) {
-#if defined ASPECT_QUO_AGE
-			asp.age = qi->last_dsm - qp->last_dsm;
-		} else {
-			asp.age = -1;
-#endif	/* ASPECT_QUO_AGE */
 		}
 
 		/* call the callback */
-		cb(asp, qi->q, clo);
+		cb(qi->q, clo);
 
 		/* finalise the cells */
 		if (qp != NULL) {
 			qp->q = qi->q;
-#if defined ASPECT_QUO_AGE
-			qp->last_dsm = qi->last_dsm;
-#endif	/* ASPECT_QUO_AGE */
 			free_qqq(qq, qi);
 		} else {
 			bang_qqq(qq, qi);

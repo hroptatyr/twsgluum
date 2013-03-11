@@ -76,18 +76,7 @@ struct quo_s {
 	qv_t q;
 };
 
-/* quoq callback aspects */
-struct quoq_cb_asp_s {
-	enum {
-		QUOQ_CB_UNK,
-		QUOQ_CB_FLUSH,
-	} type;
-#if defined ASPECT_QUO_AGE
-	int age;
-#endif	/* ASPECT_QUO_AGE */
-};
-
-typedef void(*quoq_cb_f)(struct quoq_cb_asp_s, struct quo_s, void*);
+typedef void(*quoq_cb_f)(struct quo_s, void*);
 
 
 /* ctors/dtors */
