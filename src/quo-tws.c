@@ -282,17 +282,17 @@ infra_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_infra_clo_s clo)
 /* called from tws api for infra messages */
 	switch (what) {
 	case TWS_CB_INFRA_ERROR:
-		logger("NFRA  oid %u  code %u: %s\n",
+		logger("NFRA  oid %u  code %u: %s",
 			clo.oid, clo.code, (const char*)clo.data);
 		break;
 	case TWS_CB_INFRA_CONN_CLOSED:
-		logger("NFRA  connection closed\n");
+		logger("NFRA  connection closed");
 		break;
 	case TWS_CB_INFRA_READY:
-		logger("NFRA  RDY\n");
+		logger("NFRA  RDY");
 		break;
 	default:
-		logger("NFRA  what %u  oid %u  code %u  data %p\n",
+		logger("NFRA  what %u  oid %u  code %u  data %p",
 			what, clo.oid, clo.code, clo.data);
 		break;
 	}
