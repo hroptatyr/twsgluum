@@ -216,15 +216,13 @@ struct flush_clo_s {
 };
 
 static void
-qq_flush_cb(struct quoq_cb_asp_s asp, struct quo_s q, struct flush_clo_s *clo)
+qq_flush_cb(struct quo_s q, struct flush_clo_s *clo)
 {
 	ctx_t ctx = clo->ctx;
 	sl1t_t l1t = clo->l1t;
 	/* try and find the sdef for this quote */
 	uint32_t idx = q.idx;
 	sub_t sub = subq_find_idx(ctx->sq, idx);
-
-	assert(asp.type == QUOQ_CB_FLUSH);
 
 	if (UNLIKELY(sub == NULL)) {
 		/* probably unsub'd, fuck the quote */
