@@ -652,7 +652,6 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 stop:
 	/* and lastly, stop ourselves */
 	ev_timer_stop(EV_A_ w);
-	w->data = NULL;
 	return;
 again:
 	ev_timer_again(EV_A_ w);
@@ -664,6 +663,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 {
 	static ev_timer reco[1];
 	static tws_st_t old_st;
+	static time_t last_reco;
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
@@ -673,16 +673,22 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	QUO_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
-	case TWS_ST_DWN:
-		/* is there a timer already? */
-		if (reco->data == NULL) {
+	case TWS_ST_DWN: {
+		/* manual timering */
+		time_t this = time(NULL);
+
+		if (last_reco + 2 < this) {
 			/* start the reconnection timer */
 			reco->data = ctx;
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
 			QUO_DEBUG("RECO\n");
+			last_reco = this;
+		} else {
+			ev_timer_again(EV_A_ reco);
 		}
 		break;
+	}
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
 			QUO_DEBUG("SUBS\n");
