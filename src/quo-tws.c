@@ -627,13 +627,16 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		/* call that twsc watcher manually to free subq resources
 		 * mainloop isn't running any more */
 		twsc_cb(EV_A_ twsc, EV_CUSTOM);
-		goto stop;
+		return;
+	} else if ((ctx = w->data, tws_state(ctx->tws)) > TWS_ST_DWN) {
+		/* connection is up and running */
+		return;
 	}
-	/* otherwise proceed normally */
-	ctx = w->data;
+
+	/* otherwise proceed with the (re)connect */
 	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
-		goto again;
+		return;
 	}
 
 	QUO_DEBUG("CONN  %d\n", s);
@@ -647,14 +650,8 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
 		QUO_DEBUG("DOWN  %d\n", s);
 		ev_io_shut(EV_A_ twsc);
-		goto again;
+		return;
 	}
-stop:
-	/* and lastly, stop ourselves */
-	ev_timer_stop(EV_A_ w);
-	return;
-again:
-	ev_timer_again(EV_A_ w);
 	return;
 }
 
@@ -663,7 +660,6 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 {
 	static ev_timer reco[1];
 	static tws_st_t old_st;
-	static time_t last_reco;
 	ctx_t ctx = w->data;
 	tws_st_t st;
 
@@ -673,22 +669,15 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	QUO_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
-	case TWS_ST_DWN: {
-		/* manual timering */
-		time_t this = time(NULL);
-
-		if (last_reco + 2 < this) {
-			/* start the reconnection timer */
-			reco->data = ctx;
+	case TWS_ST_DWN:
+		if (reco->data == NULL) {
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
-			QUO_DEBUG("RECO\n");
-			last_reco = this;
-		} else {
-			ev_timer_again(EV_A_ reco);
+			reco->data = ctx;
 		}
+		/* let the reco timer do the work */
 		break;
-	}
+
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
 			QUO_DEBUG("SUBS\n");
