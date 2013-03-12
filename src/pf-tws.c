@@ -484,18 +484,29 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 
 	/* going down? */
 	if (UNLIKELY(w == NULL)) {
-		PF_DEBUG("FINI  %d\n", twsc->fd);
+		logger("FINI  %d", twsc->fd);
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
-	/* otherwise proceed normally */
-	ctx = w->data;
+
+	switch ((ctx = w->data, tws_state(ctx->tws))) {
+	case TWS_ST_SUP:
+	case TWS_ST_RDY:
+	default:
+		/* connection is up and running */
+		return;
+	case TWS_ST_UNK:
+	case TWS_ST_DWN:
+		break;
+	}
+
+	/* otherwise proceed with the (re)connect */
 	if ((s = make_tws_sock(ctx->uri)) < 0) {
 		error(errno, "tws connection setup failed");
 		return;
 	}
 
-	PF_DEBUG("CONN  %d\n", s);
+	logger("CONN  %d", s);
 	twsc->data = ctx;
 	ev_io_init(twsc, twsc_cb, s, EV_READ);
 	ev_io_start(EV_A_ twsc);
@@ -504,13 +515,10 @@ reco_cb(EV_P_ ev_timer *w, int UNUSED(revents))
 		cli = time(NULL);
 	}
 	if (UNLIKELY(init_tws(ctx->tws, s, cli) < 0)) {
-		PF_DEBUG("DOWN  %d\n", s);
+		logger("DOWN  %d", s);
 		ev_io_shut(EV_A_ twsc);
 		return;
 	}
-	/* and lastly, stop ourselves */
-	ev_timer_stop(EV_A_ w);
-	w->data = NULL;
 	return;
 }
 
@@ -528,19 +536,18 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 	PF_DEBUG("STAT  %u\n", st);
 	switch (st) {
 	case TWS_ST_UNK:
-	case TWS_ST_DWN:
-		/* is there a timer already? */
 		if (reco->data == NULL) {
-			/* start the reconnection timer */
-			reco->data = ctx;
 			ev_timer_init(reco, reco_cb, 0.0, 2.0/*option?*/);
 			ev_timer_start(EV_A_ reco);
-			PF_DEBUG("RECO\n");
+			reco->data = ctx;
 		}
+	case TWS_ST_DWN:
+		/* let the reco timer do the work */
 		break;
+
 	case TWS_ST_RDY:
 		if (old_st != TWS_ST_RDY) {
-			PF_DEBUG("SUBS\n");
+			logger("SUBS");
 			tws_sub_ac(ctx->tws, TWS_ALL_ACCOUNTS);
 		}
 	case TWS_ST_SUP:
@@ -550,7 +557,7 @@ prep_cb(EV_P_ ev_prepare *w, int UNUSED(revents))
 		pfaq_flush(ctx);
 		break;
 	default:
-		PF_DEBUG("unknown state: %u\n", tws_state(ctx->tws));
+		logger("unknown state: %u", tws_state(ctx->tws));
 		abort();
 	}
 
@@ -565,7 +572,7 @@ beef_cb(EV_P_ ev_io *w, int UNUSED(revents))
 	static char junk[1];
 
 	(void)recv(w->fd, junk, sizeof(junk), MSG_TRUNC);
-	PF_DEBUG("JUNK\n");
+	logger("JUNK");
 	return;
 }
 
@@ -573,7 +580,7 @@ static void
 sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 {
 	ev_unloop(EV_A_ EVUNLOOP_ALL);
-	PF_DEBUG("UNLO\n");
+	logger("UNLO");
 	return;
 }
 
