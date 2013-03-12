@@ -100,7 +100,7 @@ make_tws_sock(const struct tws_uri_s uri[static 1])
 {
 	struct addrinfo *aires;
 	struct addrinfo hints = {0};
-	int s = -1;
+	int s;
 
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -114,7 +114,7 @@ make_tws_sock(const struct tws_uri_s uri[static 1])
 	hints.ai_protocol = 0;
 
 	if (getaddrinfo(uri->h, uri->p, &hints, &aires) < 0) {
-		goto out;
+		return -1;
 	}
 	/* now try them all */
 	for (const struct addrinfo *ai = aires;
@@ -123,7 +123,6 @@ make_tws_sock(const struct tws_uri_s uri[static 1])
 		      connect(s, ai->ai_addr, ai->ai_addrlen) < 0);
 	     close(s), s = -1, ai = ai->ai_next);
 
-out:
 	freeaddrinfo(aires);
 	return s;
 }
