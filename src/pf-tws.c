@@ -451,14 +451,15 @@ post_cb(tws_t tws, tws_cb_t what, struct tws_post_clo_s clo)
 	case TWS_CB_POST_ACUP: {
 		ctx_t ctx = (void*)tws;
 		const struct tws_post_acup_clo_s *rclo = clo.data;
+		const char *nick = tws_cont_nick(rclo->cont);
 		struct pfa_s pos;
 
 		PF_DEBUG("tws %p: post ACUP: %s %s <- %.4f  (%.4f)\n",
-			tws, rclo->ac_name, tws_cont_nick(rclo->cont),
+			tws, rclo->ac_name, nick,
 			rclo->pos, rclo->val);
 
 		pos.ac = find_ac_name(ctx, rclo->ac_name);
-		pos.sym = strdup_pos_name(tws_cont_nick(rclo->cont));
+		pos.sym = strdup_pos_name(nick);
 		pos.lqty = rclo->pos > 0 ? rclo->pos : 0.0;
 		pos.sqty = rclo->pos < 0 ? -rclo->pos : 0.0;
 		pfaq_add(ctx->pq, pos);
