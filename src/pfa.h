@@ -44,9 +44,11 @@ typedef struct pfa_s *pfa_t;
 /** a queue of quote objects */
 typedef struct pfaq_s *pfaq_t;
 
+typedef ssize_t interned_t;
+
 struct pfa_s {
 	const char *ac;
-	const char *sym;
+	interned_t sym;
 	double lqty;
 	double sqty;
 };
@@ -64,5 +66,9 @@ extern void pfaq_add(pfaq_t pq, struct pfa_s p);
  * Iterate (and flush) positions on the queue PQ. */
 extern void
 pfaq_flush_cb(pfaq_t pq, void(*cb)(struct pfa_s, void*), void *clo);
+
+/**
+ * For interned symbols */
+extern const char *find_intern(interned_t);
 
 #endif	/* INCLUDED_pfa_h_ */

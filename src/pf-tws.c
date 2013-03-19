@@ -209,7 +209,7 @@ pq_flush_cb(struct pfa_s pos, struct flush_clo_s *clo)
 
 	/* instr name */
 	BANGL(p, ep, "55=");
-	BANGP(p, ep, pos.sym);
+	BANGP(p, ep, find_intern(pos.sym));
 	*p++ = *SOH;
 
 	/* #positions */
@@ -341,6 +341,11 @@ find_ac_name(ctx_t ctx, const char *src)
 	return nac < ctx->nac_names ? ac : NULL;
 }
 
+/* interning of symbols */
+static char *pos_names = NULL;
+static size_t pos_names_z = 0U;
+static size_t pos_names_alz = 0U;
+
 static inline __attribute__((pure)) size_t
 next_alz(size_t z)
 {
@@ -354,31 +359,35 @@ next_alz(size_t z)
 	return ++z;
 }
 
-static const char*
-strdup_pos_name(const char *src)
+static void
+unintern_all(void)
+{
+	/* singleton killer */
+	if (pos_names != NULL) {
+		free(pos_names);
+	}
+	pos_names = NULL;
+	pos_names_z = pos_names_alz = 0U;
+	return;
+}
+
+static interned_t
+intern_pos_name(const char *src)
 {
 	/* positions under management */
-	static char *pos_names = NULL;
-	static size_t pos_names_z = 0U;
-	static size_t pos_names_alz = 0U;
 	size_t srz;
-	char *pos;
+	const char *pos;
+	interned_t res;
 
 	/* try and find the guy before */
 	if (UNLIKELY(src == NULL)) {
-		/* singleton killer */
-		if (pos_names != NULL) {
-			free(pos_names);
-		}
-		pos_names = NULL;
-		pos_names_z = pos_names_alz = 0U;
-		return NULL;
+		return -1;
 	} else if (UNLIKELY((srz = strlen(src)) == 0U)) {
-		return NULL;
+		return -1;
 	} else if ((srz++,
 		    pos = memmem(pos_names, pos_names_z, src, srz)) != NULL) {
 		/* yay */
-		return pos;
+		return pos - pos_names;
 	}
 	/* extend the array and bang this name */
 	if (pos_names_z + srz >= pos_names_alz) {
@@ -387,9 +396,18 @@ strdup_pos_name(const char *src)
 		pos_names = realloc(pos_names, nu_alz);
 		pos_names_alz = nu_alz;
 	}
-	memcpy(pos = pos_names + pos_names_z, src, srz);
+	memcpy(pos_names + (res = pos_names_z), src, srz);
 	pos_names_z += srz;
-	return pos;
+	return res;
+}
+
+const char*
+find_intern(interned_t sym)
+{
+	if (UNLIKELY(sym < 0)) {
+		return NULL;
+	}
+	return pos_names + sym;
 }
 
 
@@ -459,7 +477,7 @@ post_cb(tws_t tws, tws_cb_t what, struct tws_post_clo_s clo)
 			rclo->pos, rclo->val);
 
 		pos.ac = find_ac_name(ctx, rclo->ac_name);
-		pos.sym = strdup_pos_name(nick);
+		pos.sym = intern_pos_name(nick);
 		pos.lqty = rclo->pos > 0 ? rclo->pos : 0.0;
 		pos.sqty = rclo->pos < 0 ? -rclo->pos : 0.0;
 		pfaq_add(ctx->pq, pos);
@@ -766,7 +784,7 @@ unlo:
 		free(ctx->ac_names);
 	}
 	/* kill pos name singleton */
-	strdup_pos_name(NULL);
+	unintern_all();
 
 	/* destroy the default evloop */
 	ev_default_destroy();

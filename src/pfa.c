@@ -155,7 +155,8 @@ pfaq_flush_cb(pfaq_t pq, void(*cb)(struct pfa_s, void*), void *clo)
 
 	while ((pi = pop_pqq(pq)) != NULL) {
 		PFA_DEBUG("FLSH  %s@%s %.4f %.4f\n",
-			pi->p.sym, pi->p.ac, pi->p.lqty, pi->p.sqty);
+			find_intern(pi->p.sym),
+			pi->p.ac, pi->p.lqty, pi->p.sqty);
 
 		/* call the callback */
 		cb(pi->p, clo);
