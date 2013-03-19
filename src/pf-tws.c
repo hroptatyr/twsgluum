@@ -37,6 +37,8 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+/* for memmem() */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -339,6 +341,57 @@ find_ac_name(ctx_t ctx, const char *src)
 	return nac < ctx->nac_names ? ac : NULL;
 }
 
+static inline __attribute__((pure)) size_t
+next_alz(size_t z)
+{
+	z--;
+	z |= z >> 1U;
+	z |= z >> 2U;
+	z |= z >> 4U;
+	z |= z >> 8U;
+	z |= z >> 16U;
+	z |= z >> 32U;
+	return ++z;
+}
+
+static const char*
+strdup_pos_name(const char *src)
+{
+	/* positions under management */
+	static char *pos_names = NULL;
+	static size_t pos_names_z = 0U;
+	static size_t pos_names_alz = 0U;
+	size_t srz;
+	char *pos;
+
+	/* try and find the guy before */
+	if (UNLIKELY(src == NULL)) {
+		/* singleton killer */
+		if (pos_names != NULL) {
+			free(pos_names);
+		}
+		pos_names = NULL;
+		pos_names_z = pos_names_alz = 0U;
+		return NULL;
+	} else if (UNLIKELY((srz = strlen(src)) == 0U)) {
+		return NULL;
+	} else if ((srz++,
+		    pos = memmem(pos_names, pos_names_z, src, srz)) != NULL) {
+		/* yay */
+		return pos;
+	}
+	/* extend the array and bang this name */
+	if (pos_names_z + srz >= pos_names_alz) {
+		size_t nu_alz = next_alz(pos_names_alz + srz);
+
+		pos_names = realloc(pos_names, nu_alz);
+		pos_names_alz = nu_alz;
+	}
+	memcpy(pos = pos_names + pos_names_z, src, srz);
+	pos_names_z += srz;
+	return pos;
+}
+
 
 /* tws interaction */
 static void
@@ -405,7 +458,7 @@ post_cb(tws_t tws, tws_cb_t what, struct tws_post_clo_s clo)
 			rclo->pos, rclo->val);
 
 		pos.ac = find_ac_name(ctx, rclo->ac_name);
-		pos.sym = tws_cont_nick(rclo->cont);
+		pos.sym = strdup_pos_name(tws_cont_nick(rclo->cont));
 		pos.lqty = rclo->pos > 0 ? rclo->pos : 0.0;
 		pos.sqty = rclo->pos < 0 ? -rclo->pos : 0.0;
 		pfaq_add(ctx->pq, pos);
@@ -707,6 +760,12 @@ main(int argc, char *argv[])
 unlo:
 	/* free uri resources */
 	free_uri(ctx->uri);
+
+	if (ctx->ac_names != NULL) {
+		free(ctx->ac_names);
+	}
+	/* kill pos name singleton */
+	strdup_pos_name(NULL);
 
 	/* destroy the default evloop */
 	ev_default_destroy();
