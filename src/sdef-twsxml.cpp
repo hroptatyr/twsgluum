@@ -412,11 +412,16 @@ tws_cont_nick(tws_const_cont_t cont)
 		xch = c->primaryExchange.c_str();
 	}
 	if ((sym = c->comboLegsDescrip.c_str()) != NULL && sym[0]) {
-		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+		goto pr_rolf_style;
 	} else if (cid) {
 		snprintf(nick, sizeof(nick), "%ld_%s_%s", cid, sty, xch);
 	} else if ((sym = c->localSymbol.c_str()) != NULL && sym[0]) {
-		snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+	pr_rolf_style:
+		if (sty[0] && xch[0]) {
+			snprintf(nick, sizeof(nick), "%s_%s_%s", sym, sty, xch);
+		} else {
+			snprintf(nick, sizeof(nick), "%s", sym);
+		}
 	} else if ((sym = c->symbol.c_str()) != NULL && sym[0] &&
 		   (ccy = c->currency.c_str()) != NULL && ccy[0]) {
 		snprintf(nick, sizeof(nick), "%s/%s_%s_%s", sym, ccy, sty, xch);
