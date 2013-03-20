@@ -476,25 +476,23 @@ __wrapper::updateAccountValue(
 {
 	tws_t tws = WRP_TWS(this);
 	const char *ck = key.c_str();
+	char *q;
+	double v;
 
-	if (strcmp(ck, "CashBalance") == 0) {
+	if (ccy.length() > 0 && (v = strtod(val.c_str(), &q), *q == '\0')) {
 		static struct tws_post_acup_clo_s clo[1];
 		static IB::Contract cont;
-		static IB::IBString cash_sectyp = std::string("CASH");
-		static IB::IBString cash_exch = std::string("IDEALPRO");
 		const char *ca = acn.c_str();
-		const char *cv = val.c_str();
 
 		// contract with just the currency field set
-		cont.secType = cash_sectyp;
-		cont.symbol = ccy;
+		cont.symbol = cont.localSymbol = key + "/" + ccy;
 		cont.currency = ccy;
-		cont.localSymbol = ccy;
-		cont.primaryExchange = cash_exch;
+		cont.secType = std::string("PRTFL");
+		cont.primaryExchange = std::string("CUSTOMER");
 		// prepare the closure
 		clo->ac_name = ca;
 		clo->cont = &cont;
-		clo->pos = strtod(cv, NULL);
+		clo->pos = v;
 		clo->val = 0.0;
 		POST_CB(tws, TWS_CB_POST_ACUP, (tws_oid_t)0, clo);
 	}

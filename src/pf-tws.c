@@ -37,6 +37,8 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+/* for memmem() */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -207,7 +209,7 @@ pq_flush_cb(struct pfa_s pos, struct flush_clo_s *clo)
 
 	/* instr name */
 	BANGL(p, ep, "55=");
-	BANGP(p, ep, pos.sym);
+	BANGP(p, ep, find_intern(pos.sym));
 	*p++ = *SOH;
 
 	/* #positions */
@@ -339,6 +341,75 @@ find_ac_name(ctx_t ctx, const char *src)
 	return nac < ctx->nac_names ? ac : NULL;
 }
 
+/* interning of symbols */
+static char *pos_names = NULL;
+static size_t pos_names_z = 0U;
+static size_t pos_names_alz = 0U;
+
+static inline __attribute__((pure)) size_t
+next_alz(size_t z)
+{
+	z--;
+	z |= z >> 1U;
+	z |= z >> 2U;
+	z |= z >> 4U;
+	z |= z >> 8U;
+	z |= z >> 16U;
+	z |= z >> 32U;
+	return ++z;
+}
+
+static void
+unintern_all(void)
+{
+	/* singleton killer */
+	if (pos_names != NULL) {
+		free(pos_names);
+	}
+	pos_names = NULL;
+	pos_names_z = pos_names_alz = 0U;
+	return;
+}
+
+static interned_t
+intern_pos_name(const char *src)
+{
+	/* positions under management */
+	size_t srz;
+	const char *pos;
+	interned_t res;
+
+	/* try and find the guy before */
+	if (UNLIKELY(src == NULL)) {
+		return -1;
+	} else if (UNLIKELY((srz = strlen(src)) == 0U)) {
+		return -1;
+	} else if ((srz++,
+		    pos = memmem(pos_names, pos_names_z, src, srz)) != NULL) {
+		/* yay */
+		return pos - pos_names;
+	}
+	/* extend the array and bang this name */
+	if (pos_names_z + srz >= pos_names_alz) {
+		size_t nu_alz = next_alz(pos_names_alz + srz);
+
+		pos_names = realloc(pos_names, nu_alz);
+		pos_names_alz = nu_alz;
+	}
+	memcpy(pos_names + (res = pos_names_z), src, srz);
+	pos_names_z += srz;
+	return res;
+}
+
+const char*
+find_intern(interned_t sym)
+{
+	if (UNLIKELY(sym < 0)) {
+		return NULL;
+	}
+	return pos_names + sym;
+}
+
 
 /* tws interaction */
 static void
@@ -398,14 +469,15 @@ post_cb(tws_t tws, tws_cb_t what, struct tws_post_clo_s clo)
 	case TWS_CB_POST_ACUP: {
 		ctx_t ctx = (void*)tws;
 		const struct tws_post_acup_clo_s *rclo = clo.data;
+		const char *nick = tws_cont_nick(rclo->cont);
 		struct pfa_s pos;
 
 		PF_DEBUG("tws %p: post ACUP: %s %s <- %.4f  (%.4f)\n",
-			tws, rclo->ac_name, tws_cont_nick(rclo->cont),
+			tws, rclo->ac_name, nick,
 			rclo->pos, rclo->val);
 
 		pos.ac = find_ac_name(ctx, rclo->ac_name);
-		pos.sym = tws_cont_nick(rclo->cont);
+		pos.sym = intern_pos_name(nick);
 		pos.lqty = rclo->pos > 0 ? rclo->pos : 0.0;
 		pos.sqty = rclo->pos < 0 ? -rclo->pos : 0.0;
 		pfaq_add(ctx->pq, pos);
@@ -707,6 +779,12 @@ main(int argc, char *argv[])
 unlo:
 	/* free uri resources */
 	free_uri(ctx->uri);
+
+	if (ctx->ac_names != NULL) {
+		free(ctx->ac_names);
+	}
+	/* kill pos name singleton */
+	unintern_all();
 
 	/* destroy the default evloop */
 	ev_default_destroy();
