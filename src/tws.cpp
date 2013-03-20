@@ -487,8 +487,8 @@ __wrapper::updateAccountValue(
 		// contract with just the currency field set
 		cont.symbol = cont.localSymbol = key + "/" + ccy;
 		cont.currency = ccy;
-		cont.secType = std::string("PRTFL");
-		cont.primaryExchange = std::string("CUSTOMER");
+		cont.secType = std::string("");
+		cont.primaryExchange = std::string("");
 		// prepare the closure
 		clo->ac_name = ca;
 		clo->cont = &cont;
