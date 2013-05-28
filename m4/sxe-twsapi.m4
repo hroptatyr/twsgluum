@@ -42,6 +42,10 @@ dnl   def: sxe_cv_feat_twsapi yes|no
 		PKG_CHECK_MODULES([twsapi], [twsapi >= 0.4.1], [
 			## pkg found
 			sxe_cv_feat_twsapi="yes"
+			safe_CPPFLAGS="${CPPFLAGS}"
+			CPPFLAGS="${pkg_cv_twsapi_CFLAGS}"
+			AC_CHECK_HEADERS([twsapi/twsapi_config.h])
+			CPPFLAGS="${safe_CPPFLAGS}"
 			$1
 		], $2)
 	])
