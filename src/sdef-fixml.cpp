@@ -40,6 +40,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef HAVE_TWSAPI_TWSAPI_CONFIG_H
+# include <twsapi/twsapi_config.h>
+#endif /* HAVE_TWSAPI_TWSAPI_CONFIG_H */
 #include <twsapi/Contract.h>
 #include "logger.h"
 
@@ -380,7 +383,12 @@ tws_ser_sdef_fix(char *restrict buf, size_t bsz, tws_const_sdef_t src)
 	// closing <Instrmt> tag, children of SecDef will follow
 	ADDl(p, REST, "</Instrmt>");
 
-	if (IB::Contract::ComboLegList *cl = d->summary.comboLegs) {
+#if TWSAPI_IB_VERSION_NUMBER <= 966
+	if (IB::Contract::ComboLegList *cl = d->summary.comboLegs)
+#else
+	if (IB::Contract::ComboLegList *cl = d->summary.comboLegs.get())
+#endif /* TWSAPI_IB_VERSION_NUMBER <= 966 */
+	{
 		for (IB::Contract::ComboLegList::iterator it = cl->begin(),
 			     end = cl->end(); it != end; it++) {
 			ADDl(p, REST, "<Leg");

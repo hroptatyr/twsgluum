@@ -40,6 +40,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "logger.h"
+#ifdef HAVE_TWSAPI_TWSAPI_CONFIG_H
+# include <twsapi/twsapi_config.h>
+#endif /* HAVE_TWSAPI_TWSAPI_CONFIG_H */
 #include <twsapi/Contract.h>
 
 #if !defined SDEF_WRONLY
@@ -282,15 +285,21 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 	case TX_TAG_COMBOLEGS: {
 		IB::Contract *ins = (IB::Contract*)ctx->next->c;
 
+#if TWSAPI_IB_VERSION_NUMBER <= 966
 		if (ins->comboLegs == NULL) {
 			ins->comboLegs = new IB::Contract::ComboLegList();
 		}
+#else
+		if (ins->comboLegs.get() == NULL) {
+			ins->comboLegs = IB::Contract::ComboLegListSPtr(
+				new IB::Contract::ComboLegList());
+		}
+#endif /* TWSAPI_IB_VERSION_NUMBER <= 966 */
 		break;
 	}
 
 	case TX_TAG_COMBOLEG: {
 		IB::Contract *ins = (IB::Contract*)ctx->next->c;
-		IB::Contract::ComboLegList* cmb = ins->comboLegs;
 		IB::ComboLeg *leg = new IB::ComboLeg;
 
 		/* get all them contract specs */
@@ -301,7 +310,11 @@ sax_bo_TWSXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 				leg, TX_NS_TWSXML_0_1, aid, ap[1]);
 		}
 		/* and add to the leg list */
-		cmb->push_back(leg);
+#if TWSAPI_IB_VERSION_NUMBER <= 966
+		ins->comboLegs->push_back(leg);
+#else
+		ins->comboLegs->push_back(IB::ComboLegSPtr(leg));
+#endif /* TWSAPI_IB_VERSION_NUMBER <= 966 */
 		break;
 	}
 
