@@ -39,12 +39,19 @@
 #endif	/* HAVE_CONFIG_H */
 #include <string.h>
 
+#ifdef HAVE_TWSAPI_TWSAPI_CONFIG_H
+# include <twsapi/twsapi_config.h>
+#endif /* HAVE_TWSAPI_TWSAPI_CONFIG_H */
 #include <twsapi/EWrapper.h>
 #include <twsapi/EPosixClientSocket.h>
 #include <twsapi/Order.h>
 #include <twsapi/OrderState.h>
 #include <twsapi/Execution.h>
 #include <twsapi/Contract.h>
+#if TWSAPI_IB_VERSION_NUMBER > 966
+# include <twsapi/CommissionReport.h>
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
+
 #include "tws.h"
 #include "nifty.h"
 
@@ -127,6 +134,9 @@ public:
 	void deltaNeutralValidation(int reqId, const IB::UnderComp&);
 	void tickSnapshotEnd(int reqId);
 	void marketDataType(IB::TickerId reqId, int mkt_data_type);
+#if TWSAPI_IB_VERSION_NUMBER > 966
+	void commissionReport(const IB::CommissionReport &commissionReport);
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
 
 	/* sort of private */
 	tws_oid_t next_oid;
@@ -456,6 +466,15 @@ __wrapper::execDetailsEnd(int req_id)
 	TRD_CB(tws, TWS_CB_TRD_EXEC_DTL_END, (tws_oid_t)req_id, NULL);
 	return;
 }
+
+#if TWSAPI_IB_VERSION_NUMBER > 966
+void
+__wrapper::commissionReport(
+	const IB::CommissionReport&)
+{
+	return;
+}
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
 
 
 /* post trade */
