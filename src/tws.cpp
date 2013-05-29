@@ -494,7 +494,6 @@ __wrapper::updateAccountValue(
 	const IB::IBString &ccy, const IB::IBString &acn)
 {
 	tws_t tws = WRP_TWS(this);
-	const char *ck = key.c_str();
 	char *q;
 	double v;
 
