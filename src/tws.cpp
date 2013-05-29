@@ -39,12 +39,19 @@
 #endif	/* HAVE_CONFIG_H */
 #include <string.h>
 
+#ifdef HAVE_TWSAPI_TWSAPI_CONFIG_H
+# include <twsapi/twsapi_config.h>
+#endif /* HAVE_TWSAPI_TWSAPI_CONFIG_H */
 #include <twsapi/EWrapper.h>
 #include <twsapi/EPosixClientSocket.h>
 #include <twsapi/Order.h>
 #include <twsapi/OrderState.h>
 #include <twsapi/Execution.h>
 #include <twsapi/Contract.h>
+#if TWSAPI_IB_VERSION_NUMBER > 966
+# include <twsapi/CommissionReport.h>
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
+
 #include "tws.h"
 #include "nifty.h"
 
@@ -127,20 +134,23 @@ public:
 	void deltaNeutralValidation(int reqId, const IB::UnderComp&);
 	void tickSnapshotEnd(int reqId);
 	void marketDataType(IB::TickerId reqId, int mkt_data_type);
+#if TWSAPI_IB_VERSION_NUMBER > 966
+	void commissionReport(const IB::CommissionReport &commissionReport);
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
 
 	/* sort of private */
 	tws_oid_t next_oid;
 	tws_time_t time;
-	void *cli;
-	void *tws;
+	void *clo_cli;
+	void *clo_tws;
 };
 
 #define TWS_WRP(x)	((__wrapper*)x)
-#define TWS_CLI(x)	((IB::EPosixClientSocket*)(TWS_WRP(x))->cli)
+#define TWS_CLI(x)	((IB::EPosixClientSocket*)(TWS_WRP(x))->clo_cli)
 #define TWS_PRIV_WRP(x)	TWS_WRP(((tws_t)x)->priv)
 #define TWS_PRIV_CLI(x)	TWS_CLI(((tws_t)x)->priv)
 
-#define WRP_TWS(x)	((tws_t)x->tws)
+#define WRP_TWS(x)	((tws_t)x->clo_tws)
 
 
 /* the generic wrapper */
@@ -457,6 +467,15 @@ __wrapper::execDetailsEnd(int req_id)
 	return;
 }
 
+#if TWSAPI_IB_VERSION_NUMBER > 966
+void
+__wrapper::commissionReport(
+	const IB::CommissionReport&)
+{
+	return;
+}
+#endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
+
 
 /* post trade */
 static struct tws_post_clo_s post_clo;
@@ -475,7 +494,6 @@ __wrapper::updateAccountValue(
 	const IB::IBString &ccy, const IB::IBString &acn)
 {
 	tws_t tws = WRP_TWS(this);
-	const char *ck = key.c_str();
 	char *q;
 	double v;
 
@@ -717,10 +735,11 @@ init_tws(tws_t tws, int sock, int client)
 	tws->priv = new __wrapper();
 
 	rset_tws(tws);
-	TWS_PRIV_WRP(tws)->cli = new IB::EPosixClientSocket(TWS_PRIV_WRP(tws));
+	TWS_PRIV_WRP(tws)->clo_cli =
+		new IB::EPosixClientSocket(TWS_PRIV_WRP(tws));
 
 	/* just so we know who we are */
-	TWS_PRIV_WRP(tws)->tws = tws;
+	TWS_PRIV_WRP(tws)->clo_tws = tws;
 	TWS_PRIV_CLI(tws)->prepareHandshake(sock, client);
 	return tws_start(tws) == 1;
 }
@@ -738,7 +757,7 @@ fini_tws(tws_t tws)
 			tws_stop(tws);
 
 			delete TWS_PRIV_CLI(tws);
-			TWS_PRIV_WRP(tws)->cli = NULL;
+			TWS_PRIV_WRP(tws)->clo_cli = NULL;
 		}
 		delete TWS_PRIV_WRP(tws);
 		tws->priv = NULL;

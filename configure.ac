@@ -39,7 +39,7 @@ AC_C_BIGENDIAN
 SXE_CHECK_CFLAGS
 
 AC_PROG_CXX([icpc g++])
-CXXFLAGS="${CXXFLAGS} -Wall -Wextra"
+SXE_CHECK_CXXFLAGS
 
 ## check for byteorder utils
 AC_CHECK_HEADERS([endian.h sys/endian.h byteorder.h byteswap.h])
