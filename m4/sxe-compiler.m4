@@ -289,11 +289,11 @@ AC_DEFUN([SXE_WARNFLAGS], [dnl
 		SXE_CHECK_COMPILER_FLAG([-wd 10237], [dnl
 			warnflags="${warnflags} -wd 10237"])])
 
-	dnl SXE_CHECK_COMPILER_FLAG([-diag-disable 2259], [dnl
-	dnl 	warnflags="${warnflags} -diag-disable 2259"], [
-	dnl 	SXE_CHECK_COMPILER_FLAG([-wd 2259], [dnl
-	dnl 		warnflags="${warnflags} -wd 2259"])])
+	SXE_CHECK_COMPILER_FLAG([-debug inline-debug-info], [
+		warnflags="${warnflags} -debug inline-debug-info"])
 
+	SXE_CHECK_COMPILER_FLAG([-diag-enable remark,vec,par], [
+		warnflags="${warnflags} -diag-enable remark,vec,par"])
 
 	AC_MSG_CHECKING([for preferred warning flags])
 	AC_MSG_RESULT([${warnflags}])
@@ -303,10 +303,10 @@ AC_DEFUN([SXE_OPTIFLAGS], [dnl
 	optiflags="-O3"
 
 	SXE_CHECK_COMPILER_FLAG([-ipo256], [
-		optiflags="${optiflags} -ipo256"])
+		special_optiflags="${special_optiflags} -ipo256"])
 
 	SXE_CHECK_COMPILER_FLAG([-ipo-jobs256], [
-		optiflags="${optiflags} -ipo-jobs256"])
+		special_optiflags="${special_optiflags} -ipo-jobs256"])
 ])dnl SXE_OPTIFLAGS
 
 AC_DEFUN([SXE_FEATFLAGS], [dnl
@@ -377,6 +377,11 @@ AC_DEFUN([SXE_CHECK_CFLAGS], [dnl
 	CFLAGS="${SXE_CFLAGS} ${ac_cv_env_CFLAGS_value}"
 	AC_MSG_CHECKING([for preferred CFLAGS])
 	AC_MSG_RESULT([${CFLAGS}])
+
+	EXTRA_CFLAGS="${special_optiflags}"
+	AC_SUBST([EXTRA_CFLAGS])
+	AC_MSG_CHECKING([for EXTRA_CFLAGS])
+	AC_MSG_RESULT([${EXTRA_CFLAGS}])
 
 	AC_MSG_NOTICE([
 If you wish to ADD your own flags you want to stop here and rerun the
@@ -567,5 +572,48 @@ Whether sloppy struct initialising works])
 	fi
 	AC_LANG_POP()
 ])dnl SXE_CHECK_SLOPPY_STRUCTS_INIT
+
+AC_DEFUN([SXE_CHECK_CXXFLAGS], [dnl
+	dnl #### This may need to be overhauled so that all of SXEMACS_CC's flags
+	dnl are handled separately, not just the xe_cflags_warning stuff.
+
+	AC_LANG([C++])
+	save_ac_cxx_werror_flag="${ac_cxx_werror_flag}"
+
+	## Use either command line flag, environment var, or autodetection
+	CXXFLAGS=""
+	SXE_DEBUGFLAGS
+	SXE_WARNFLAGS
+	SXE_OPTIFLAGS
+	SXE_CXXFLAGS="$SXE_CXXFLAGS $debugflags $optiflags $warnflags"
+
+	SXE_FEATFLAGS
+	SXE_CXXFLAGS="$SXE_CXXFLAGS $featflags"
+
+	CXXFLAGS="${SXE_CXXFLAGS} ${ac_cv_env_CXXFLAGS_value}"
+	AC_MSG_CHECKING([for preferred CXXFLAGS])
+	AC_MSG_RESULT([${CXXFLAGS}])
+
+	EXTRA_CXXFLAGS="${special_optiflags}"
+	AC_SUBST([EXTRA_CXXFLAGS])
+	AC_MSG_CHECKING([for EXTRA_CXXFLAGS])
+	AC_MSG_RESULT([${EXTRA_CXXFLAGS}])
+
+	AC_MSG_NOTICE([
+If you wish to ADD your own flags you want to stop here and rerun the
+configure script like so:
+  configure CXXFLAGS=<to-be-added-flags>
+
+You can always override the determined CXXFLAGS, partially or totally,
+using
+  make -C <directory> CXXFLAGS=<your-own-flags> [target]
+or
+  make CXXFLAGS=<your-own-flags> [target]
+respectively
+		])
+
+	ac_cxx_werror_flag="${save_ac_cxx_werror_flag}"
+	AC_LANG([C])
+])dnl SXE_CHECK_CXXFLAGS
 
 dnl sxe-compiler.m4 ends here
