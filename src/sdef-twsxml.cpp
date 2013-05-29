@@ -126,7 +126,7 @@ check_tx_attr(__ctx_t ctx, const char *attr)
 
 static void
 proc_COMBOLEG_attr(
-	tws_cont_t leg, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
+	tws_cont_t leg, tx_nsid_t UNUSED(n), tws_xml_aid_t aid, const char *val)
 {
 	IB::ComboLeg *c = (IB::ComboLeg*)leg;
 
@@ -154,7 +154,7 @@ proc_COMBOLEG_attr(
 
 static void
 proc_REQCONTRACT_attr(
-	tws_cont_t ins, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
+	tws_cont_t ins, tx_nsid_t UNUSED(n), tws_xml_aid_t aid, const char *val)
 {
 	IB::Contract *c = (IB::Contract*)ins;
 
@@ -182,7 +182,8 @@ proc_REQCONTRACT_attr(
 
 static void
 proc_QMETA_attr(
-	struct tws_sreq_s *sr, tx_nsid_t ns, tws_xml_aid_t aid, const char *val)
+	struct tws_sreq_s *sr, tx_nsid_t UNUSED(ns),
+	tws_xml_aid_t aid, const char *val)
 {
 	switch ((tws_xml_aid_t)aid) {
 	case TX_ATTR_NICK:
@@ -199,7 +200,7 @@ proc_QMETA_attr(
 }
 
 static void
-proc_TWSXML_attr(__ctx_t ctx, const char *attr, const char *value)
+proc_TWSXML_attr(__ctx_t ctx, const char *attr, const char *UNUSED(val))
 {
 	const char *rattr = tag_massage(attr);
 	tws_xml_aid_t aid;
@@ -372,13 +373,22 @@ tws_dup_cont(tws_const_cont_t c)
 	IB::Contract *res = new IB::Contract;
 
 	*res = *ibc;
+	if (ibc->comboLegs != NULL) {
+		IB::Contract::CloneComboLegs(*res->comboLegs, *ibc->comboLegs);
+	}
 	return (tws_cont_t)res;
 }
 
 void
 tws_free_cont(tws_cont_t c)
 {
-	delete (IB::Contract*)c;
+	IB::Contract *ibc = (IB::Contract*)c;
+
+	if (ibc->comboLegs != NULL) {
+		IB::Contract::CleanupComboLegs(*ibc->comboLegs);
+		delete ibc->comboLegs;
+	}
+	delete ibc;
 	return;
 }
 
