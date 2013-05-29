@@ -373,9 +373,13 @@ tws_dup_cont(tws_const_cont_t c)
 	IB::Contract *res = new IB::Contract;
 
 	*res = *ibc;
+#if TWSAPI_IB_VERSION_NUMBER <= 966
 	if (ibc->comboLegs != NULL) {
 		IB::Contract::CloneComboLegs(*res->comboLegs, *ibc->comboLegs);
 	}
+#else  /* TWSAPI_IB_VERSION_NUMBER */
+	IB::Contract::CloneComboLegs(res->comboLegs, ibc->comboLegs);
+#endif	/* TWSAPI_IB_VERSION_NUMBER */
 	return (tws_cont_t)res;
 }
 
@@ -384,12 +388,12 @@ tws_free_cont(tws_cont_t c)
 {
 	IB::Contract *ibc = (IB::Contract*)c;
 
-	if (ibc->comboLegs != NULL) {
 #if TWSAPI_IB_VERSION_NUMBER <= 966
+	if (ibc->comboLegs != NULL) {
 		IB::Contract::CleanupComboLegs(*ibc->comboLegs);
 		delete ibc->comboLegs;
-#endif	/* TWSAPI_IB_VERSION_NUMBER */
 	}
+#endif	/* TWSAPI_IB_VERSION_NUMBER */
 	delete ibc;
 	return;
 }
