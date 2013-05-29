@@ -385,8 +385,10 @@ tws_free_cont(tws_cont_t c)
 	IB::Contract *ibc = (IB::Contract*)c;
 
 	if (ibc->comboLegs != NULL) {
+#if TWSAPI_IB_VERSION_NUMBER <= 966
 		IB::Contract::CleanupComboLegs(*ibc->comboLegs);
 		delete ibc->comboLegs;
+#endif	/* TWSAPI_IB_VERSION_NUMBER */
 	}
 	delete ibc;
 	return;
