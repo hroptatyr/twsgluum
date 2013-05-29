@@ -372,14 +372,23 @@ tws_dup_cont(tws_const_cont_t c)
 	const IB::Contract *ibc = (const IB::Contract*)c;
 	IB::Contract *res = new IB::Contract;
 
+	/* non-NULL member pointers are deep copied later */
 	*res = *ibc;
 #if TWSAPI_IB_VERSION_NUMBER <= 966
 	if (ibc->comboLegs != NULL) {
+		res->comboLegs = new IB::Contract::ComboLegList();
 		IB::Contract::CloneComboLegs(*res->comboLegs, *ibc->comboLegs);
 	}
 #else  /* TWSAPI_IB_VERSION_NUMBER */
-	IB::Contract::CloneComboLegs(res->comboLegs, ibc->comboLegs);
+	if (ibc->comboLegs.get() != NULL) {
+		res->comboLegs = IB::Contract::ComboLegListSPtr(
+			new IB::Contract::ComboLegList());
+		IB::Contract::CloneComboLegs(res->comboLegs, ibc->comboLegs);
+	}
 #endif	/* TWSAPI_IB_VERSION_NUMBER */
+	if (ibc->underComp != NULL) {
+		res->underComp = new IB::UnderComp(*ibc->underComp);
+	}
 	return (tws_cont_t)res;
 }
 
@@ -394,6 +403,9 @@ tws_free_cont(tws_cont_t c)
 		delete ibc->comboLegs;
 	}
 #endif	/* TWSAPI_IB_VERSION_NUMBER */
+	if (ibc->underComp != NULL) {
+		delete ibc->underComp;
+	}
 	delete ibc;
 	return;
 }
