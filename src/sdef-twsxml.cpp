@@ -386,6 +386,9 @@ tws_dup_cont(tws_const_cont_t c)
 		IB::Contract::CloneComboLegs(res->comboLegs, ibc->comboLegs);
 	}
 #endif	/* TWSAPI_IB_VERSION_NUMBER */
+	if (ibc->underComp != NULL) {
+		res->underComp = new IB::UnderComp(*ibc->underComp);
+	}
 	return (tws_cont_t)res;
 }
 
@@ -400,6 +403,9 @@ tws_free_cont(tws_cont_t c)
 		delete ibc->comboLegs;
 	}
 #endif	/* TWSAPI_IB_VERSION_NUMBER */
+	if (ibc->underComp != NULL) {
+		delete ibc->underComp;
+	}
 	delete ibc;
 	return;
 }
