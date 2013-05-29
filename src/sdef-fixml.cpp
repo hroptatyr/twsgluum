@@ -325,7 +325,7 @@ tws_ser_sdef_fix(char *restrict buf, size_t bsz, tws_const_sdef_t src)
 		}					    \
 	} while (0)
 
-	IB::ContractDetails *d = (IB::ContractDetails*)src;
+	const IB::ContractDetails *d = (const IB::ContractDetails*)src;
 	char *restrict p = buf;
 
 #define REST	buf + bsz - p
