@@ -375,10 +375,10 @@ tws_dup_cont(tws_const_cont_t c)
 	*res = *ibc;
 #if TWSAPI_IB_VERSION_NUMBER <= 966
 	if (ibc->comboLegs != NULL) {
-#endif	/* TWSAPI_IB_VERSION_NUMBER */
 		IB::Contract::CloneComboLegs(*res->comboLegs, *ibc->comboLegs);
-#if TWSAPI_IB_VERSION_NUMBER <= 966
 	}
+#else  /* TWSAPI_IB_VERSION_NUMBER */
+	IB::Contract::CloneComboLegs(res->comboLegs, ibc->comboLegs);
 #endif	/* TWSAPI_IB_VERSION_NUMBER */
 	return (tws_cont_t)res;
 }
