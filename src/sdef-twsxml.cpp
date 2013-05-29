@@ -372,13 +372,22 @@ tws_dup_cont(tws_const_cont_t c)
 	IB::Contract *res = new IB::Contract;
 
 	*res = *ibc;
+	if (ibc->comboLegs != NULL) {
+		IB::Contract::CloneComboLegs(*res->comboLegs, *ibc->comboLegs);
+	}
 	return (tws_cont_t)res;
 }
 
 void
 tws_free_cont(tws_cont_t c)
 {
-	delete (IB::Contract*)c;
+	IB::Contract *ibc = (IB::Contract*)c;
+
+	if (ibc->comboLegs != NULL) {
+		IB::Contract::CleanupComboLegs(*ibc->comboLegs);
+		delete ibc->comboLegs;
+	}
+	delete ibc;
 	return;
 }
 
