@@ -141,16 +141,16 @@ public:
 	/* sort of private */
 	tws_oid_t next_oid;
 	tws_time_t time;
-	void *cli;
-	void *tws;
+	void *clo_cli;
+	void *clo_tws;
 };
 
 #define TWS_WRP(x)	((__wrapper*)x)
-#define TWS_CLI(x)	((IB::EPosixClientSocket*)(TWS_WRP(x))->cli)
+#define TWS_CLI(x)	((IB::EPosixClientSocket*)(TWS_WRP(x))->clo_cli)
 #define TWS_PRIV_WRP(x)	TWS_WRP(((tws_t)x)->priv)
 #define TWS_PRIV_CLI(x)	TWS_CLI(((tws_t)x)->priv)
 
-#define WRP_TWS(x)	((tws_t)x->tws)
+#define WRP_TWS(x)	((tws_t)x->clo_tws)
 
 
 /* the generic wrapper */
@@ -736,10 +736,11 @@ init_tws(tws_t tws, int sock, int client)
 	tws->priv = new __wrapper();
 
 	rset_tws(tws);
-	TWS_PRIV_WRP(tws)->cli = new IB::EPosixClientSocket(TWS_PRIV_WRP(tws));
+	TWS_PRIV_WRP(tws)->clo_cli =
+		new IB::EPosixClientSocket(TWS_PRIV_WRP(tws));
 
 	/* just so we know who we are */
-	TWS_PRIV_WRP(tws)->tws = tws;
+	TWS_PRIV_WRP(tws)->clo_tws = tws;
 	TWS_PRIV_CLI(tws)->prepareHandshake(sock, client);
 	return tws_start(tws) == 1;
 }
@@ -757,7 +758,7 @@ fini_tws(tws_t tws)
 			tws_stop(tws);
 
 			delete TWS_PRIV_CLI(tws);
-			TWS_PRIV_WRP(tws)->cli = NULL;
+			TWS_PRIV_WRP(tws)->clo_cli = NULL;
 		}
 		delete TWS_PRIV_WRP(tws);
 		tws->priv = NULL;
