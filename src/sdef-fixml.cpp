@@ -178,7 +178,7 @@ proc_SECDEF_attr(tws_cont_t ins, tx_nsid_t ns, fixml_aid_t aid, const char *v)
 }
 
 static void
-proc_FIXML_attr(__ctx_t ctx, const char *attr, const char *value)
+proc_FIXML_attr(__ctx_t ctx, const char *attr, const char *UNUSED(value))
 {
 	const char *rattr = tag_massage(attr);
 	fixml_aid_t aid;
@@ -269,7 +269,7 @@ sax_bo_FIXML_elt(__ctx_t ctx, const char *elem, const char **attr)
 }
 
 void
-sax_eo_FIXML_elt(__ctx_t ctx, const char *elem)
+sax_eo_FIXML_elt(__ctx_t UNUSED(ctx), const char *elem)
 {
 	fixml_tid_t tid = sax_fix_tid_from_tag(elem);
 
@@ -325,7 +325,7 @@ tws_ser_sdef_fix(char *restrict buf, size_t bsz, tws_const_sdef_t src)
 		}					    \
 	} while (0)
 
-	IB::ContractDetails *d = (IB::ContractDetails*)src;
+	const IB::ContractDetails *d = (const IB::ContractDetails*)src;
 	char *restrict p = buf;
 
 #define REST	buf + bsz - p
