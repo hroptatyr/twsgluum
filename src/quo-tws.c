@@ -266,11 +266,13 @@ quoq_flush_maybe(ctx_t ctx)
 		sl1t_set_stmp_msec(clo.l1t, now->tv_usec / 1000);
 	}
 
-	/* get the packet ctor'd */
-	quoq_flush_cb(ctx->qq, (void(*)())qq_flush_cb, &clo);
+	if (ctx->beef != NULL) {
+		/* get the packet ctor'd */
+		quoq_flush_cb(ctx->qq, (void(*)())qq_flush_cb, &clo);
 
-	/* make sure nothing gets buffered */
-	ud_flush(ctx->beef);
+		/* make sure nothing gets buffered */
+		ud_flush(ctx->beef);
+	}
 	return;
 }
 
