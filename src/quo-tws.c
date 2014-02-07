@@ -193,6 +193,8 @@ brag(ctx_t ctx, sub_t sub)
 	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
 		"%u", sub->uidx);
+	/* just for debugging purposes */
+	assert(strncmp(sym, "p0x", 3));
 	/* pack the qmeta message */
 	brg.idx = sub->uidx;
 	brg.sym = sym;
@@ -345,13 +347,13 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	}
 
 	case TWS_CB_PRE_CONT_DTL:
-		logger("SDEF  %u %p", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
 			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
 			const char *nick = tws_sdef_nick(sdef);
 			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
+			logger("SDEF  %u %p %s", clo.oid, clo.data, nick);
 			/* there should be one on the queue */
 			if (UNLIKELY(s == NULL || s->sdef != NULL)) {
 				/* big bugger :|, unsub? */
@@ -365,7 +367,9 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			} else {
 				/* unsub that old guy, sub the new one */
 				logger("USUB  %u rplcs %u", idx, s->idx);
+#if defined FORCE_QUO_SUBS
 				tws_rem_quo(tws, s->idx);
+#endif	/* FORCE_QUO_SUBS */
 				s->idx = idx;
 				/* change sdef slot (for the better?) */
 				if (UNLIKELY(s->sdef != NULL)) {
@@ -379,6 +383,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 					s->nick = strdup(nick);
 				}
 			}
+		} else {
+			logger("SDEF  %u %p", clo.oid, clo.data);
 		}
 		break;
 	case TWS_CB_PRE_CONT_DTL_END:
@@ -400,15 +406,21 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
  * we actually subscribe instruments twice, once here using the
  * instrument specified in INS and then we request security definitions
  * and upon a successful definition response we subscribe
- * those responses again */
+ * those responses again
+ * well that behaviour is masked with FORCE_QUO_SUBS as of now! */
 	struct sub_s s;
 	tws_cont_t ins = sr->c;
 
 	logger("SUBC  %p", ins);
+#if defined FORCE_QUO_SUBS
 	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
 		logger("cannot subscribe to quotes of %p", ins);
-	} else if (!(s.sreq = tws_req_sdef(tws, ins))) {
+		return -1;
+	}
+#endif	/* FORCE_QUO_SUBS */
+	if (!(s.sreq = tws_req_sdef(tws, ins))) {
 		logger("cannot acquire secdefs of %p", ins);
+		return -1;
 	}
 
 	/* fill in sub for our tracking */
