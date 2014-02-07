@@ -345,13 +345,13 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	}
 
 	case TWS_CB_PRE_CONT_DTL:
-		logger("SDEF  %u %p", clo.oid, clo.data);
 		if (clo.oid && clo.data) {
 			uint32_t idx = tws_sub_quo(tws, clo.data);
 			tws_sdef_t sdef = tws_dup_sdef(clo.data);
 			const char *nick = tws_sdef_nick(sdef);
 			sub_t s = subq_find_sreq(((ctx_t)tws)->sq, clo.oid);
 
+			logger("SDEF  %u %p %s", clo.oid, clo.data, nick);
 			/* there should be one on the queue */
 			if (UNLIKELY(s == NULL || s->sdef != NULL)) {
 				/* big bugger :|, unsub? */
@@ -379,6 +379,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 					s->nick = strdup(nick);
 				}
 			}
+		} else {
+			logger("SDEF  %u %p", clo.oid, clo.data);
 		}
 		break;
 	case TWS_CB_PRE_CONT_DTL_END:
