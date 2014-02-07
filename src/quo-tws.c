@@ -193,6 +193,8 @@ brag(ctx_t ctx, sub_t sub)
 	brag_urz += snprintf(
 		brag_uri + brag_uri_offset, sizeof(brag_uri) - brag_uri_offset,
 		"%u", sub->uidx);
+	/* just for debugging purposes */
+	assert(strncmp(sym, "p0x", 3));
 	/* pack the qmeta message */
 	brg.idx = sub->uidx;
 	brg.sym = sym;
@@ -365,7 +367,9 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 			} else {
 				/* unsub that old guy, sub the new one */
 				logger("USUB  %u rplcs %u", idx, s->idx);
+#if defined FORCE_QUO_SUBS
 				tws_rem_quo(tws, s->idx);
+#endif	/* FORCE_QUO_SUBS */
 				s->idx = idx;
 				/* change sdef slot (for the better?) */
 				if (UNLIKELY(s->sdef != NULL)) {
@@ -402,15 +406,21 @@ __sub_sdef(tws_t tws, tws_sreq_t sr)
  * we actually subscribe instruments twice, once here using the
  * instrument specified in INS and then we request security definitions
  * and upon a successful definition response we subscribe
- * those responses again */
+ * those responses again
+ * well that behaviour is masked with FORCE_QUO_SUBS as of now! */
 	struct sub_s s;
 	tws_cont_t ins = sr->c;
 
 	logger("SUBC  %p", ins);
+#if defined FORCE_QUO_SUBS
 	if (!(s.idx = tws_sub_quo_cont(tws, ins))) {
 		logger("cannot subscribe to quotes of %p", ins);
-	} else if (!(s.sreq = tws_req_sdef(tws, ins))) {
+		return -1;
+	}
+#endif	/* FORCE_QUO_SUBS */
+	if (!(s.sreq = tws_req_sdef(tws, ins))) {
 		logger("cannot acquire secdefs of %p", ins);
+		return -1;
 	}
 
 	/* fill in sub for our tracking */
