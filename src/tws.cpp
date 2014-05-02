@@ -137,6 +137,15 @@ public:
 #if TWSAPI_IB_VERSION_NUMBER > 966
 	void commissionReport(const IB::CommissionReport &commissionReport);
 #endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
+#if TWSAPI_IB_VERSION_NUMBER >= 969
+	void position( const IB::IBString& account,
+		const IB::Contract& contract, int position, double avgCost );
+	void positionEnd();
+	void accountSummary( int reqId, const IB::IBString& account,
+		const IB::IBString& tag, const IB::IBString& value,
+		const IB::IBString& currency );
+	void accountSummaryEnd( int reqId );
+#endif /* TWSAPI_IB_VERSION_NUMBER >= 969 */
 
 	/* sort of private */
 	tws_oid_t next_oid;
@@ -475,6 +484,37 @@ __wrapper::commissionReport(
 	return;
 }
 #endif /* TWSAPI_IB_VERSION_NUMBER > 966 */
+
+#if TWSAPI_IB_VERSION_NUMBER >= 969
+void
+__wrapper::position(
+	const IB::IBString& /*account*/, const IB::Contract& /*contract*/,
+	int /*position*/, double /*avgCost*/)
+{
+	return;
+}
+
+void
+__wrapper::positionEnd()
+{
+	return;
+}
+
+void
+__wrapper::accountSummary(
+	int /*reqId*/, const IB::IBString& /*account*/,
+	const IB::IBString& /*tag*/, const IB::IBString& /*value*/,
+	const IB::IBString& /*currency*/ )
+{
+	return;
+}
+
+void
+__wrapper::accountSummaryEnd(int /*reqId*/ )
+{
+	return;
+}
+#endif /* TWSAPI_IB_VERSION_NUMBER >= 969 */
 
 
 /* post trade */
