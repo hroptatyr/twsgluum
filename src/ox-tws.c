@@ -1,6 +1,6 @@
 /*** ox-tws.c -- populate order events to tws
  *
- * Copyright (C) 2012-2013 Sebastian Freundt
+ * Copyright (C) 2012-2015 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -267,29 +267,13 @@ sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 }
 
 
-#if defined __INTEL_COMPILER
-# pragma warning (disable:593)
-# pragma warning (disable:181)
-#elif defined __GNUC__
-# pragma GCC diagnostic ignored "-Wswitch"
-# pragma GCC diagnostic ignored "-Wswitch-enum"
-#endif /* __INTEL_COMPILER */
-#include "ox-tws-clo.h"
-#include "ox-tws-clo.c"
-#if defined __INTEL_COMPILER
-# pragma warning (default:593)
-# pragma warning (default:181)
-#elif defined __GNUC__
-# pragma GCC diagnostic warning "-Wswitch"
-# pragma GCC diagnostic warning "-Wswitch-enum"
-#endif	/* __INTEL_COMPILER */
+#include "ox-tws.yucc"
 
 int
 main(int argc, char *argv[])
 {
+	static yuck_t argi[1U];
 	struct ctx_s ctx[1] = {{0}};
-	/* args */
-	struct ox_args_info argi[1];
 	/* use the default event loop unless you have special needs */
 	struct ev_loop *loop;
 	/* ev goodies */
@@ -299,30 +283,32 @@ main(int argc, char *argv[])
 	ev_prepare prep[1];
 	ev_check chck[1];
 	/* final result */
-	int res = 0;
+	int rc = 0;
 
 	/* big assignment for logging purposes */
 	logerr = stderr;
 
 	/* parse the command line */
-	if (ox_parser(argc, argv, argi)) {
-		res = 1;
+	if (yuck_parse(argi, argc, argv) < 0) {
+		rc = 1;
 		goto out;
 	}
 
 	/* snarf host name and port */
-	if (argi->tws_host_given) {
+	if (argi->tws_host_arg) {
 		ctx->host = argi->tws_host_arg;
 	} else {
 		ctx->host = "localhost";
 	}
-	if (argi->tws_port_given) {
-		ctx->port = (uint16_t)argi->tws_port_arg;
+	if (argi->tws_port_arg) {
+		long unsigned int p = strtoul(argi->tws_port_arg, NULL, 0);
+		ctx->port = (uint16_t)p;
 	} else {
 		ctx->port = (uint16_t)7474;
 	}
-	if (argi->tws_client_id_given) {
-		ctx->client = argi->tws_client_id_arg;
+	if (argi->tws_client_id_arg) {
+		long unsigned int c = strtoul(argi->tws_client_id_arg, NULL, 0);
+		ctx->client = c;
 	} else {
 		struct timeval now[1];
 
@@ -342,13 +328,13 @@ main(int argc, char *argv[])
 	ev_signal_start(EV_A_ sighup_watcher);
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach() < 0) {
+	if (argi->daemonise_flag && detach() < 0) {
 		perror("daemonisation failed");
-		res = 1;
+		rc = 1;
 		goto out;
-	} else if (argi->log_given && open_logerr(argi->log_arg) < 0) {
+	} else if (argi->log_arg && open_logerr(argi->log_arg) < 0) {
 		perror("cannot open log file");
-		res = 1;
+		rc = 1;
 		goto out;
 	}
 
@@ -376,8 +362,8 @@ main(int argc, char *argv[])
 	/* destroy the default evloop */
 	ev_default_destroy();
 out:
-	ox_parser_free(argi);
-	return res;
+	yuck_free(argi);
+	return rc;
 }
 
 /* ox-tws.c ends here */

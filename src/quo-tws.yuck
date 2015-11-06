@@ -1,0 +1,18 @@
+Usage: quo-tws [OPTION]... [REQUEST_FILE]...
+
+Subscribe to quote and trade data and populate to beef channel.
+
+Subscriptions are read from REQUEST_FILE, a valid TWSXML document.
+
+  -d, --daemonise  Detach from tty and runs as daemon
+      --log=FILE   Log events to FILE.
+
+unserding options:
+
+  -p, --port=INT   Multicast control channel port  (default=`8653')
+      --beef=INT   Multicast payload channel
+
+TWS options:
+
+      --tws=URI    client@host:port where the TWS is running (default:
+                     localhost:7474)

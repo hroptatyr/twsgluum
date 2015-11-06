@@ -1,0 +1,19 @@
+Usage: ox-tws [OPTION]...
+
+Populate order events from beef channel.
+
+  -d, --daemonise          Detach from tty and runs as daemon
+      --log=FILE           Log events to FILE.
+
+unserding options:
+
+  -p, --port=INT           Multicast control channel port  (default=`8653')
+      --beef=INT           Multicast payload channel
+
+TWS options:
+
+      --tws-host=HOSTNAME  Host where the TWS is running (default: localhost)
+      --tws-port=PORT      Port number of the TWS (default: 7474)
+      --tws-client-id=INT  TWS client connection id (default: current unix
+                             time)
+      --tws-arccount=NAME  TWS account name for multi-account set ups
