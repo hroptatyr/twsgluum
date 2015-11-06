@@ -657,29 +657,14 @@ sigall_cb(EV_P_ ev_signal *UNUSED(w), int UNUSED(revents))
 }
 
 
-#if defined __INTEL_COMPILER
-# pragma warning (disable:593)
-# pragma warning (disable:181)
-#elif defined __GNUC__
-# pragma GCC diagnostic ignored "-Wswitch"
-# pragma GCC diagnostic ignored "-Wswitch-enum"
-#endif /* __INTEL_COMPILER */
-#include "pf-tws-clo.h"
-#include "pf-tws-clo.c"
-#if defined __INTEL_COMPILER
-# pragma warning (default:593)
-# pragma warning (default:181)
-#elif defined __GNUC__
-# pragma GCC diagnostic warning "-Wswitch"
-# pragma GCC diagnostic warning "-Wswitch-enum"
-#endif	/* __INTEL_COMPILER */
+#include "pf-tws.yucc"
 
 int
 main(int argc, char *argv[])
 {
+	static yuck_t argi[1U];
 	struct ctx_s ctx[1] = {{0}};
 	/* args */
-	struct pf_args_info argi[1];
 	/* use the default event loop unless you have special needs */
 	struct ev_loop *loop;
 	/* ev goodies */
@@ -688,26 +673,26 @@ main(int argc, char *argv[])
 	ev_signal sigterm_watcher[1];
 	ev_prepare prep[1];
 	ev_io ctrl[1];
-	/* final result */
-	int res = 0;
+	/* final rcult */
+	int rc = 0;
 
 	/* big assignment for logging purposes */
 	logerr = stderr;
 
 	/* parse the command line */
-	if (pf_parser(argc, argv, argi)) {
-		res = 1;
+	if (yuck_parse(argi, argc, argv) < 0) {
+		rc = 1;
 		goto out;
 	}
 
 	/* and just before we're entering that REPL check for daemonisation */
-	if (argi->daemonise_given && detach() < 0) {
+	if (argi->daemonise_flag && detach() < 0) {
 		perror("daemonisation failed");
-		res = 1;
+		rc = 1;
 		goto out;
-	} else if (argi->log_given && open_logerr(argi->log_arg) < 0) {
+	} else if (argi->log_arg && open_logerr(argi->log_arg) < 0) {
 		perror("cannot open log file");
-		res = 1;
+		rc = 1;
 		goto out;
 	}
 
@@ -715,7 +700,7 @@ main(int argc, char *argv[])
 	loop = ev_default_loop(EVFLAG_AUTO);
 
 	/* snarf host name and port */
-	if (argi->tws_given) {
+	if (argi->tws_arg) {
 		*ctx->uri = make_uri(argi->tws_arg);
 	} else {
 		*ctx->uri = make_uri("localhost");
@@ -734,9 +719,11 @@ main(int argc, char *argv[])
 	}
 	/* go through all beef channels */
 	{
+		long unsigned int beef =
+			argi->beef_arg ? strtoul(argi->beef_arg, NULL, 0) : 0U;
 		struct ud_sockopt_s opt = {
 			UD_PUB,
-			.port = (short unsigned int)argi->beef_arg,
+			.port = (short unsigned int)beef,
 		};
 		if ((ctx->beef = ud_socket(opt)) == NULL) {
 			perror("cannot connect to beef channel");
@@ -777,7 +764,7 @@ main(int argc, char *argv[])
 	free_pfaq(ctx->pq);
 
 unlo:
-	/* free uri resources */
+	/* free uri rcources */
 	free_uri(ctx->uri);
 
 	if (ctx->ac_names != NULL) {
@@ -789,8 +776,8 @@ unlo:
 	/* destroy the default evloop */
 	ev_default_destroy();
 out:
-	pf_parser_free(argi);
-	return res;
+	yuck_free(argi);
+	return rc;
 }
 
 /* pf-tws.c ends here */

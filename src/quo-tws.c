@@ -969,7 +969,7 @@ main(int argc, char *argv[])
 	logger("FINI");
 	ev_prepare_stop(EV_A_ prep);
 
-	/* propagate tws shutdown and rcource freeing */
+	/* propagate tws shutdown and resource freeing */
 	reco_cb(EV_A_ NULL, EV_CUSTOM | EV_CLEANUP);
 
 	/* finalise quote queue */
