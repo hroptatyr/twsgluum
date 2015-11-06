@@ -1,9 +1,11 @@
 ### Makefile.am
+include $(top_builddir)/version.mk
 
 AM_CFLAGS = $(EXTRA_CFLAGS)
 AM_CXXFLAGS = $(EXTRA_CXXFLAGS)
-AM_CPPFLAGS = -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
-AM_LDFLAGS =
+AM_CPPFLAGS = -D_POSIX_C_SOURCE=201001L -D_XOPEN_SOURCE=700 -D_BSD_SOURCE
+AM_CPPFLAGS += -D_HAVE_VERSION_H
+AM_LDFLAGS = $(XCCLDFLAGS)
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -11,18 +13,24 @@ lib_LTLIBRARIES =
 noinst_LTLIBRARIES =
 noinst_HEADERS =
 BUILT_SOURCES =
-CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
+CLEANFILES =
+SUFFIXES =
+
+
+## version rules
+version.c: version.c.in $(top_builddir)/.version
+	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
+		yuck$(EXEEXT) scmver --ignore-noscm --force -o $@ \
+			--use-reference --reference $(top_builddir)/.version $<
 
 noinst_HEADERS += nifty.h
 noinst_HEADERS += logger.h
 noinst_HEADERS += daemonise.h
 
-
 bin_PROGRAMS += quo-tws
-quo_tws_SOURCES = quo-tws.c quo-tws-clo.ggo quo-tws.h
+quo_tws_SOURCES = quo-tws.c quo-tws.h quo-tws.yuck
 EXTRA_quo_tws_SOURCES =
-BUILT_SOURCES += quo-tws-clo.c quo-tws-clo.h
 quo_tws_SOURCES += tws.cpp tws.h
 quo_tws_SOURCES += logger.c logger.h
 quo_tws_SOURCES += daemonise.c daemonise.h
@@ -64,11 +72,11 @@ quo_tws_LDFLAGS += $(unserding_LIBS)
 quo_tws_LDADD =
 quo_tws_LDADD += $(unsermoddir)/libsvc-uterus.a
 quo_tws_LDADD += $(quo_tws_LDFLAGS)
+BUILT_SOURCES += quo-tws.yucc
 
 bin_PROGRAMS += pf-tws
-pf_tws_SOURCES = pf-tws.c pf-tws-clo.ggo pf-tws.h
+pf_tws_SOURCES = pf-tws.c pf-tws.h pf-tws.yuck
 EXTRA_pf_tws_SOURCES =
-BUILT_SOURCES += pf-tws-clo.c pf-tws-clo.h
 pf_tws_SOURCES += tws.cpp tws.h
 pf_tws_SOURCES += logger.c logger.h
 pf_tws_SOURCES += daemonise.c daemonise.h
@@ -88,10 +96,10 @@ pf_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 pf_tws_LDFLAGS += $(libev_LIBS)
 pf_tws_LDFLAGS += $(unserding_LIBS)
 pf_tws_LDADD = $(pf_tws_LDFLAGS)
+BUILT_SOURCES += pf-tws.yucc
 
 bin_PROGRAMS += ox-tws
-ox_tws_SOURCES = ox-tws.c ox-tws-clo.ggo ox-tws.h
-BUILT_SOURCES += ox-tws-clo.c ox-tws-clo.h
+ox_tws_SOURCES = ox-tws.c ox-tws.h ox-tws.yuck
 ox_tws_SOURCES += tws.cpp tws.h
 ox_tws_SOURCES += logger.c logger.h
 ox_tws_SOURCES += daemonise.c daemonise.h
@@ -102,18 +110,21 @@ ox_tws_LDFLAGS = $(AM_LDFLAGS)
 ox_tws_LDFLAGS += $(twsapi_LIBS) -lstdc++
 ox_tws_LDFLAGS += $(libev_LIBS)
 ox_tws_LDADD = $(ox_tws_LDFLAGS)
+BUILT_SOURCES += ox-tws.yucc
 
 
-## our rule for gengetopt
-%.c %.h: %.ggo
-	$(AM_V_GEN) gengetopt -l -i $< -F $*
+## yuck rule
+SUFFIXES += .yuck
+SUFFIXES += .yucc
+.yuck.yucc:
+	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
+		yuck$(EXEEXT) gen -o $@ $<
 
 ## our rule for gperf
-%.c: %.gperf
+SUFFIXES += .gperf
+.gperf.c:
 	$(AM_V_GEN) $(GPERF) -L ANSI-C $< --output-file $@
 
-# 
-# Help the developers get nice post-processed source files
 
 ## Create preprocessor output (debugging purposes only)
 .c.i:
