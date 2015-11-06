@@ -808,7 +808,6 @@ main(int argc, char *argv[])
 {
 	static yuck_t argi[1U];
 	struct ctx_s ctx[1] = {{0}};
-	/* args */
 	/* use the default event loop unless you have special needs */
 	struct ev_loop *loop;
 	/* ev goodies */
