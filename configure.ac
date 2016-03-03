@@ -74,6 +74,9 @@ SXE_CHECK_TWSAPI_HANDSHAKE([:], [
 Handshake functionality in twsapi is mandatory.
 ])])
 
+## check for dfp goodness
+SXE_CHECK_DFP754
+
 
 AM_MISSING_PROG([GPERF], [gperf])
 AM_CONDITIONAL([HAVE_GPERF], [test -n "${GPERF}"])
