@@ -481,4 +481,18 @@ tws_sdef_nick(tws_const_sdef_t sdef)
 	return tws_cont_nick((tws_const_cont_t)&sd->summary);
 }
 
+
+/* for the FX auxiliary */
+tws_cont_t
+tws_sdef_make_cash(const char *base, const char *terms)
+{
+	IB::Contract *c = new IB::Contract;
+
+	c->symbol = std::string(base);
+	c->currency = std::string(terms);
+	c->secType = std::string("CASH");
+	c->exchange = std::string("IDEALPRO");
+	return c;
+}
+
 /* sdef-twsxml.cpp ends here */
