@@ -324,13 +324,13 @@ tws_free_sreq(tws_sreq_t sreq)
 	if (UNLIKELY(sreq == NULL)) {
 		return;
 	}
-	for (struct __sreq_s *sr = unconst(sreq), *srnx; sr; sr = srnx) {
+	for (struct __sreq_s *sr = deconst(sreq), *srnx; sr; sr = srnx) {
 		tws_sreq_t this = (tws_sreq_t)sr;
 
 		srnx = sr->next;
 		tws_free_cont(this->c);
 		if (this->nick != NULL) {
-			free(unconst(this->nick));
+			free(deconst(this->nick));
 		}
 		free(sr);
 	}

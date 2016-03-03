@@ -38,11 +38,11 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 #include <unistd.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
 
 #include "daemonise.h"
-#include "logger.h"
 #include "nifty.h"
 
 pid_t
