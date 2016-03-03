@@ -57,6 +57,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
+#include "dfp754_d32.h"
+#include "dfp754_d64.h"
 
 /* the tws api */
 #include "daemonise.h"
@@ -75,6 +77,9 @@
 
 typedef _Decimal32 px_t;
 typedef _Decimal64 qx_t;
+
+#define pxtostr		d32tostr
+#define qxtostr		d64tostr
 
 typedef struct ctx_s {
 	struct tws_s tws[1];
@@ -100,7 +105,7 @@ typedef enum {
 } quo_typ_t;
 
 typedef struct {
-	unsigned int idx;
+	unsigned int i;
 	px_t b;
 	px_t a;
 } quo_t;
@@ -124,6 +129,35 @@ serror(const char *fmt, ...)
 	}
 	fputc('\n', stderr);
 	return;
+}
+
+
+static int
+route_quote(ctx_t ctx, quo_t q)
+{
+/* extract bid, ask and instrument and send to mcast channel */
+	static const char suf[] = " IDEALPRO";
+	char buf[256U];
+	size_t len = 0U;
+
+	/* instrument */
+	len += (memcpy(buf, cons[q.i], 6U), 6U);
+	len += (memcpy(buf + 6, suf, strlenof(suf)), strlenof(suf));
+	buf[len++] = '\t';
+
+	if (LIKELY(q.b)) {
+		len += pxtostr(buf + len, sizeof(buf) - len, q.b);
+	}
+	buf[len++] = '\t';
+	if (LIKELY(q.a)) {
+		len += pxtostr(buf + len, sizeof(buf) - len, q.a);
+	}
+	/* and finalise */
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
+	send(ctx->ch, buf, len, 0);
+	return 0;
 }
 
 
@@ -155,16 +189,14 @@ static void
 pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 {
 /* called from tws api for pre messages */
-	(void)tws;
-
 	switch (what) {
 	case TWS_CB_PRE_PRICE: {
 		quo_t q = {
-			.idx = clo.oid,
+			.i = clo.oid,
 			.b = clo.tt == 1 ? clo.val : 0.df,
 			.a = clo.tt == 2 ? clo.val : 0.df,
 		};
-		route_quote(q);
+		route_quote((ctx_t)tws, q);
 		break;
 	}
 
