@@ -112,6 +112,43 @@ ox_tws_LDFLAGS += $(libev_LIBS)
 ox_tws_LDADD = $(ox_tws_LDFLAGS)
 BUILT_SOURCES += ox-tws.yucc
 
+bin_PROGRAMS += ibfx
+ibfx_SOURCES = ibfx.c ibfx.yuck
+EXTRA_ibfx_SOURCES =
+ibfx_SOURCES += tws.cpp tws.h
+ibfx_SOURCES += daemonise.c daemonise.h
+ibfx_SOURCES += quo.c quo.h
+ibfx_SOURCES += sdef-twsxml.cpp
+ibfx_SOURCES += dfp754_d32.c dfp754_d32.h
+ibfx_SOURCES += dfp754_d64.c dfp754_d64.h
+EXTRA_ibfx_SOURCES += proto-tx-ns.gperf proto-tx-ns.h
+EXTRA_ibfx_SOURCES += proto-tx-attr.gperf proto-tx-attr.h
+EXTRA_ibfx_SOURCES += proto-twsxml-tag.gperf proto-twsxml-tag.h
+EXTRA_ibfx_SOURCES += proto-twsxml-attr.gperf proto-twsxml-attr.h
+EXTRA_ibfx_SOURCES += proto-twsxml-reqtyp.gperf proto-twsxml-reqtyp.h
+EXTRA_ibfx_SOURCES += proto-fixml-tag.gperf proto-fixml-tag.h
+EXTRA_ibfx_SOURCES += proto-fixml-attr.gperf proto-fixml-attr.h
+EXTRA_ibfx_SOURCES += tws-uri.c tws-uri.h
+EXTRA_ibfx_SOURCES += smpl_sock.c
+BUILT_SOURCES += proto-tx-attr.c
+BUILT_SOURCES += proto-tx-ns.c
+BUILT_SOURCES += proto-twsxml-tag.c
+BUILT_SOURCES += proto-twsxml-attr.c
+BUILT_SOURCES += proto-twsxml-reqtyp.c
+BUILT_SOURCES += proto-fixml-tag.c
+BUILT_SOURCES += proto-fixml-attr.c
+ibfx_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_QUO
+ibfx_CPPFLAGS += -D__STDC_WANT_DEC_FP__
+ibfx_CPPFLAGS += $(twsapi_CFLAGS)
+ibfx_CPPFLAGS += $(libev_CFLAGS)
+ibfx_CPPFLAGS += $(expat_CFLAGS)
+ibfx_LDFLAGS = $(AM_LDFLAGS)
+ibfx_LDFLAGS += $(twsapi_LIBS) -lstdc++
+ibfx_LDFLAGS += $(libev_LIBS)
+ibfx_LDFLAGS += $(expat_LIBS)
+ibfx_LDADD = $(ibfx_LDFLAGS)
+BUILT_SOURCES += ibfx.yucc
+
 
 ## yuck rule
 SUFFIXES += .yuck

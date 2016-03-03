@@ -30,7 +30,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 ## the build chain
 AC_PROG_CC([icc gcc tcc cc])
 AC_PROG_CPP
-SXE_CHECK_CC([c11 c1x c99 gnu99])
+SXE_CHECK_CC([gnu11 gnu99])
 SXE_CHECK_CFLAGS
 AC_CHECK_TOOLS([AR], [xiar ar], [false])
 AC_C_BIGENDIAN
@@ -73,6 +73,9 @@ SXE_CHECK_TWSAPI_HANDSHAKE([:], [
 	AC_MSG_ERROR([dnl
 Handshake functionality in twsapi is mandatory.
 ])])
+
+## check for dfp goodness
+SXE_CHECK_DFP754
 
 
 AM_MISSING_PROG([GPERF], [gperf])

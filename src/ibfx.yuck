@@ -1,0 +1,10 @@
+Usage: quo-tws [OPTION]... [INSTR]...
+
+Subscribe to FX quotes and populate to beef channel.
+
+  -d, --daemonise  Detach from tty and runs as daemon
+
+TWS options:
+
+      --tws=URI    client@host:port where the TWS is running (default:
+                     localhost:7474)

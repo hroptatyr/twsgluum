@@ -709,6 +709,49 @@ Whether sloppy struct initialising works])
 	AC_LANG_POP()
 ])dnl SXE_CHECK_SLOPPY_STRUCTS_INIT
 
+AC_DEFUN([SXE_CHECK_CXXFLAGS], [dnl
+	dnl #### This may need to be overhauled so that all of SXEMACS_CC's flags
+	dnl are handled separately, not just the xe_cflags_warning stuff.
+
+	AC_LANG([C++])
+	save_ac_cxx_werror_flag="${ac_cxx_werror_flag}"
+
+	## Use either command line flag, environment var, or autodetection
+	CXXFLAGS=""
+	SXE_DEBUGFLAGS
+	SXE_WARNFLAGS
+	SXE_OPTIFLAGS
+	SXE_CXXFLAGS="$SXE_CXXFLAGS $debugflags $optiflags $warnflags"
+
+	SXE_FEATFLAGS
+	SXE_CXXFLAGS="$SXE_CXXFLAGS $featflags"
+
+	CXXFLAGS="${SXE_CXXFLAGS} ${ac_cv_env_CXXFLAGS_value}"
+	AC_MSG_CHECKING([for preferred CXXFLAGS])
+	AC_MSG_RESULT([${CXXFLAGS}])
+
+	EXTRA_CXXFLAGS="${special_optiflags}"
+	AC_SUBST([EXTRA_CXXFLAGS])
+	AC_MSG_CHECKING([for EXTRA_CXXFLAGS])
+	AC_MSG_RESULT([${EXTRA_CXXFLAGS}])
+
+	AC_MSG_NOTICE([
+If you wish to ADD your own flags you want to stop here and rerun the
+configure script like so:
+  configure CXXFLAGS=<to-be-added-flags>
+
+You can always override the determined CXXFLAGS, partially or totally,
+using
+  make -C <directory> CXXFLAGS=<your-own-flags> [target]
+or
+  make CXXFLAGS=<your-own-flags> [target]
+respectively
+		])
+
+	ac_cxx_werror_flag="${save_ac_cxx_werror_flag}"
+	AC_LANG([C])
+])dnl SXE_CHECK_CXXFLAGS
+
 AC_DEFUN([SXE_CHECK_INTRINS], [dnl
 	AC_CHECK_HEADERS([immintrin.h])
 	AC_CHECK_HEADERS([x86intrin.h])

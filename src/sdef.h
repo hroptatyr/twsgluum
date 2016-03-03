@@ -99,6 +99,10 @@ extern const char *tws_sdef_nick(tws_const_sdef_t);
  * Free resources associated with SREQ. */
 extern void tws_free_sreq(tws_sreq_t);
 
+
+/* Helper for cash contracts. */
+extern tws_cont_t tws_sdef_make_cash(const char *base, const char *terms);
+
 #if defined __cplusplus
 }
 #endif	/* __cplusplus */

@@ -37,6 +37,8 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+#include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
