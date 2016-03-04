@@ -918,21 +918,21 @@ tws_rem_ac(tws_t tws, const char *ac)
 	return __sock_ok_p(tws);
 }
 
-
 tws_oid_t
 tws_order(tws_t tws, struct tws_order_s ord)
 {
 	tws_oid_t oid;
 	IB::Contract c;
 	IB::Order o;
+	long int amt = ord.amt;
 
 	c.symbol = ord.sym;
 	c.currency = ord.ccy;
 	c.exchange = ord.xch;
 	c.secType = ord.typ;
 
-	o.action = ord.amt >= 0 ? "BUY" : "SELL";
-	o.totalQuantity = ord.amt;
+	o.action = amt >= 0 ? "BUY" : "SELL";
+	o.totalQuantity = amt >= 0 ? amt : -ord.amt;
 	o.orderType = ord.lmt ? "LMT" : "MKT";
 	o.lmtPrice = ord.lmt;
 	o.tif = ord.tif;
