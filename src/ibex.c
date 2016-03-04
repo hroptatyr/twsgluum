@@ -513,6 +513,7 @@ trd_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_trd_clo_s clo)
 		       what, clo.oid, clo.data);
 		break;
 	}
+	fflush(stdout);
 	return;
 }
 
