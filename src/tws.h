@@ -249,6 +249,16 @@ struct tws_trd_open_ord_clo_s {
 	} st;
 };
 
+struct tws_order_s {
+	const char *sym;
+	const char *xch;
+	const char *typ;
+	const char *ccy;
+
+	double amt;
+	double lmt;
+};
+
 
 /* connection guts */
 extern int init_tws(tws_t, int sock, int client);
@@ -282,6 +292,11 @@ extern int tws_sub_ac(tws_t, const char*);
 /**
  * Unsubscribe from portfolio and account events. */
 extern int tws_rem_ac(tws_t, const char*);
+
+
+/**
+ * Order stuff. */
+extern tws_oid_t tws_order(tws_t, struct tws_order_s);
 
 #if defined __cplusplus
 }
