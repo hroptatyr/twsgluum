@@ -351,7 +351,7 @@ Warning: instrument table full, cannot execute opportunity");
 		}
 	}
 
-	if (is_pending_p(ord.ins)) {
+	if (is_pending_p(ord.ins) && false) {
 		return -1;
 	}
 
