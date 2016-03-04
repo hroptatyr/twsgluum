@@ -253,6 +253,26 @@ o(tws_t tws, ord_t o)
 		.amt = o.amt,
 		.lmt = o.lp,
 	};
+	char buf[1536U];
+	size_t bi;
+
+	with (struct timespec tsp) {
+		clock_gettime(CLOCK_REALTIME_COARSE, &tsp);
+		bi = snprintf(buf, sizeof(buf),
+			"%ld.%09ld", tsp.tv_sec, tsp.tv_nsec);
+	}
+	buf[bi++] = '\t';
+	memcpy(buf + bi + 0U, pair.base, 3U);
+	memcpy(buf + bi + 3U, pair.term, 3U);
+	bi += 6U;
+	buf[bi++] = '\t';
+	bi += qxtostr(buf + bi, sizeof(buf) - bi, o.amt);
+	buf[bi++] = '\t';
+	bi += pxtostr(buf + bi, sizeof(buf) - bi, o.lp);
+	buf[bi++] = '\n';
+	buf[bi] = '\0';
+	fwrite(buf, 1, bi, stdout);
+	fflush(stdout);
 	return tws_order(tws, ord);
 }
 
@@ -461,10 +481,30 @@ infra_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_infra_clo_s clo)
 }
 
 static void
-trd_cb(tws_t tws, tws_cb_t what, struct tws_trd_clo_s clo)
+trd_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_trd_clo_s clo)
 {
-	uerror("TRAD  what %u  oid %u  data %p",
-	       what, clo.oid, clo.data);
+	with (struct timespec tsp) {
+		clock_gettime(CLOCK_REALTIME_COARSE, &tsp);
+		printf("%ld.%09ld\t", tsp.tv_sec, tsp.tv_nsec);
+	}
+
+	switch (what) {
+	case TWS_CB_TRD_ORD_STATUS: {
+		const struct tws_trd_ord_status_clo_s *os = clo.data;
+		printf("8=FIX.OUR|35=8|39=%c|", (char)os->er.ord_status);
+		break;
+	}
+	case TWS_CB_TRD_OPEN_ORD: {
+		const struct tws_trd_open_ord_clo_s *oo = clo.data;
+		printf("8=FIX.OUR|35=8|39=%c|", (char)oo->st.state);
+		break;
+	}
+	default:
+		uerror("TRAD  what %u  oid %u  data %p",
+		       what, clo.oid, clo.data);
+		break;
+	}
+	return;
 }
 
 static void
