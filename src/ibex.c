@@ -491,16 +491,25 @@ trd_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_trd_clo_s clo)
 	switch (what) {
 	case TWS_CB_TRD_ORD_STATUS: {
 		const struct tws_trd_ord_status_clo_s *os = clo.data;
-		printf("8=FIX.OUR|35=8|39=%c|", (char)os->er.ord_status);
+		printf("8=FIX.OUR|35=8|39=%c|YH=%s\n",
+		       (char)os->er.ord_status, os->yheld);
 		break;
 	}
 	case TWS_CB_TRD_OPEN_ORD: {
 		const struct tws_trd_open_ord_clo_s *oo = clo.data;
-		printf("8=FIX.OUR|35=8|39=%c|", (char)oo->st.state);
+		printf("8=FIX.OUR|35=8|39=%c|\n", (char)oo->st.state);
+		break;
+	}
+	case TWS_CB_TRD_EXEC_DTL: {
+		const struct tws_trd_exec_dtl_clo_s *ex = clo.data;
+		printf("8=FIX.OUT|35=8|39=%c|55=%s|14=%f|\n",
+		       (char)ex->er.ord_status,
+		       tws_cont_nick(ex->cont),
+		       ex->er.cum_qty);
 		break;
 	}
 	default:
-		uerror("TRAD  what %u  oid %u  data %p",
+		printf("TRAD  what %u  oid %u  data %p\n",
 		       what, clo.oid, clo.data);
 		break;
 	}
