@@ -491,8 +491,9 @@ trd_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_trd_clo_s clo)
 	switch (what) {
 	case TWS_CB_TRD_ORD_STATUS: {
 		const struct tws_trd_ord_status_clo_s *os = clo.data;
-		printf("8=FIX.OUR|35=8|39=%c|YH=%s\n",
-		       (char)os->er.ord_status, os->yheld);
+		printf("8=FIX.OUR|35=8|39=%c|14=%f|6=%f|\n",
+		       (char)os->er.ord_status,
+		       os->er.last_qty, os->er.last_prc);
 		break;
 	}
 	case TWS_CB_TRD_OPEN_ORD: {
