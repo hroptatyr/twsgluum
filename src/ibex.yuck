@@ -3,6 +3,7 @@ Usage: ibex [OPTION]...
 Populate order events from beef channel.
 
   -d, --daemonise       Detach from tty and runs as daemon
+  --amount=QTY          Trade QTY units of base currency.
 
 TWS options:
 

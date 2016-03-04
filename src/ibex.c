@@ -648,6 +648,16 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (argi->amount_arg) {
+		if (!(halt_amt = strtoqx(argi->amount_arg, NULL))) {
+			uerror("\
+Error: cannot read amount `%s'", argi->amount_arg);
+			rc = 1;
+			goto out;
+		}
+		dflt_amt = halt_amt;
+	}
+
 	/* snarf host name and port */
 	if (argi->tws_arg) {
 		*ctx->uri = make_uri(argi->tws_arg);
