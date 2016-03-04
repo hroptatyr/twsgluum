@@ -193,8 +193,8 @@ pre_cb(tws_t tws, tws_cb_t what, struct tws_pre_clo_s clo)
 	case TWS_CB_PRE_PRICE: {
 		quo_t q = {
 			.i = clo.oid,
-			.b = clo.tt == 1 ? clo.val : 0.df,
-			.a = clo.tt == 2 ? clo.val : 0.df,
+			.b = clo.tt == 1 ? (px_t)clo.val : 0.df,
+			.a = clo.tt == 2 ? (px_t)clo.val : 0.df,
 		};
 		route_quote((ctx_t)tws, q);
 		break;
