@@ -362,12 +362,12 @@ __anal_state(const char *str)
 	if (0) {
 		;
 	} else if (!strcmp(str, "Filled")) {
-		return EXEC_TYP_TRADE;
+		return ORD_ST_FILL;
 	} else if (!strcmp(str, "PreSubmitted")) {
 		return EXEC_TYP_NEW;
 	} else if (!strcmp(str, "Submitted")) {
 		return EXEC_TYP_PENDING_NEW;
-	} else if (!strcmp(str, "Cancelled")) {
+	} else if (!strcmp(str, "Cancelled") || !strcmp(str, "Canceled")) {
 		return EXEC_TYP_CANCELLED;
 	} else if (!strcmp(str, "Inactive")) {
 		return EXEC_TYP_SUSPENDED;
