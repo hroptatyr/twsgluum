@@ -249,6 +249,7 @@ o(tws_t tws, ord_t o)
 		.ccy = pair.term,
 		.xch = "IDEALPRO",
 		.typ = "CASH",
+		.tif = "IOC",
 		.amt = o.amt,
 		.lmt = o.lp,
 	};

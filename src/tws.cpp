@@ -935,6 +935,8 @@ tws_order(tws_t tws, struct tws_order_s ord)
 	o.totalQuantity = ord.amt;
 	o.orderType = ord.lmt ? "LMT" : "MKT";
 	o.lmtPrice = ord.lmt;
+	o.tif = ord.tif;
+	o.account = ord.acc;
 
 	oid = ++TWS_PRIV_WRP(tws)->next_oid;
 	TWS_PRIV_CLI(tws)->placeOrder(oid, c, o);

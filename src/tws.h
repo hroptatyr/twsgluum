@@ -254,6 +254,8 @@ struct tws_order_s {
 	const char *xch;
 	const char *typ;
 	const char *ccy;
+	const char *tif;
+	const char *acc;
 
 	double amt;
 	double lmt;
