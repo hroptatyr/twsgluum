@@ -1,4 +1,4 @@
-Usage: quo-tws [OPTION]... [INSTR]...
+Usage: ibfx [OPTION]... [INSTR]...
 
 Subscribe to FX quotes and populate to beef channel.
 
@@ -6,5 +6,5 @@ Subscribe to FX quotes and populate to beef channel.
 
 TWS options:
 
-      --tws=URI    client@host:port where the TWS is running (default:
-                     localhost:7474)
+      --tws=URI    client@host:port where the TWS is running
+                   (default: localhost:7474)
