@@ -645,10 +645,10 @@ __wrapper::connectionClosed(void)
 
 /* stuff that doesn't do calling-back at all */
 void
-__wrapper::currentTime(long int time)
+__wrapper::currentTime(long int t)
 {
 /* not public */
-	this->time = time;
+	this->time = t;
 	return;
 }
 
