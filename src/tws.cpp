@@ -362,12 +362,12 @@ __anal_state(const char *str)
 	if (0) {
 		;
 	} else if (!strcmp(str, "Filled")) {
-		return EXEC_TYP_TRADE;
+		return ORD_ST_FILL;
 	} else if (!strcmp(str, "PreSubmitted")) {
 		return EXEC_TYP_NEW;
 	} else if (!strcmp(str, "Submitted")) {
 		return EXEC_TYP_PENDING_NEW;
-	} else if (!strcmp(str, "Cancelled")) {
+	} else if (!strcmp(str, "Cancelled") || !strcmp(str, "Canceled")) {
 		return EXEC_TYP_CANCELLED;
 	} else if (!strcmp(str, "Inactive")) {
 		return EXEC_TYP_SUSPENDED;
@@ -645,10 +645,10 @@ __wrapper::connectionClosed(void)
 
 /* stuff that doesn't do calling-back at all */
 void
-__wrapper::currentTime(long int time)
+__wrapper::currentTime(long int t)
 {
 /* not public */
-	this->time = time;
+	this->time = t;
 	return;
 }
 
@@ -916,6 +916,31 @@ tws_rem_ac(tws_t tws, const char *ac)
 
 	TWS_PRIV_CLI(tws)->reqAccountUpdates(false, name);
 	return __sock_ok_p(tws);
+}
+
+tws_oid_t
+tws_order(tws_t tws, struct tws_order_s ord)
+{
+	tws_oid_t oid;
+	IB::Contract c;
+	IB::Order o;
+	long int amt = ord.amt;
+
+	c.symbol = ord.sym;
+	c.currency = ord.ccy;
+	c.exchange = ord.xch;
+	c.secType = ord.typ;
+
+	o.action = amt >= 0 ? "BUY" : "SELL";
+	o.totalQuantity = amt >= 0 ? amt : -ord.amt;
+	o.orderType = ord.lmt ? "LMT" : "MKT";
+	o.lmtPrice = ord.lmt;
+	o.tif = ord.tif;
+	o.account = ord.acc ?: "";
+
+	oid = ++TWS_PRIV_WRP(tws)->next_oid;
+	TWS_PRIV_CLI(tws)->placeOrder(oid, c, o);
+	return oid;
 }
 
 /* tws.cpp ends here */

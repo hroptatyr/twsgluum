@@ -1,0 +1,11 @@
+Usage: ibex [OPTION]...
+
+Populate order events from beef channel.
+
+  -d, --daemonise       Detach from tty and runs as daemon
+  --amount=QTY          Trade QTY units of base currency.
+
+TWS options:
+
+      --tws=URI         client@host:port where the TWS is running
+                        (default: localhost:7474)

@@ -129,7 +129,7 @@ EXTRA_ibfx_SOURCES += proto-twsxml-reqtyp.gperf proto-twsxml-reqtyp.h
 EXTRA_ibfx_SOURCES += proto-fixml-tag.gperf proto-fixml-tag.h
 EXTRA_ibfx_SOURCES += proto-fixml-attr.gperf proto-fixml-attr.h
 EXTRA_ibfx_SOURCES += tws-uri.c tws-uri.h
-EXTRA_ibfx_SOURCES += smpl_sock.c
+EXTRA_ibfx_SOURCES += mc6-sock.c
 BUILT_SOURCES += proto-tx-attr.c
 BUILT_SOURCES += proto-tx-ns.c
 BUILT_SOURCES += proto-twsxml-tag.c
@@ -148,6 +148,23 @@ ibfx_LDFLAGS += $(libev_LIBS)
 ibfx_LDFLAGS += $(expat_LIBS)
 ibfx_LDADD = $(ibfx_LDFLAGS)
 BUILT_SOURCES += ibfx.yucc
+
+bin_PROGRAMS += ibex
+ibex_SOURCES = ibex.c ibex.yuck
+ibex_SOURCES += tws.cpp tws.h
+ibex_SOURCES += daemonise.c daemonise.h
+ibex_SOURCES += dfp754_d32.c dfp754_d32.h
+ibex_SOURCES += dfp754_d64.c dfp754_d64.h
+ibex_SOURCES += sdef-twsxml.cpp
+ibex_CPPFLAGS = $(AM_CPPFLAGS) -DASPECT_PF
+ibex_CPPFLAGS += $(twsapi_CFLAGS)
+ibex_CPPFLAGS += $(libev_CFLAGS)
+ibex_LDFLAGS = $(AM_LDFLAGS)
+ibex_LDFLAGS += $(twsapi_LIBS) -lstdc++
+ibex_LDFLAGS += $(libev_LIBS)
+ibex_LDADD = $(ibex_LDFLAGS)
+EXTRA_ibex_SOURCES = mc6-sock.c
+BUILT_SOURCES += ibex.yucc
 
 
 ## yuck rule
