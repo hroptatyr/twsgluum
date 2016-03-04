@@ -503,10 +503,10 @@ trd_cb(tws_t UNUSED(tws), tws_cb_t what, struct tws_trd_clo_s clo)
 	}
 	case TWS_CB_TRD_EXEC_DTL: {
 		const struct tws_trd_exec_dtl_clo_s *ex = clo.data;
-		printf("8=FIX.OUT|35=8|39=%c|55=%s|14=%f|\n",
+		printf("8=FIX.OUT|35=8|39=%c|55=%s|14=%f|6=%f|\n",
 		       (char)(ex->er.ord_status ?: '?'),
 		       tws_cont_nick(ex->cont),
-		       ex->er.cum_qty);
+		       ex->er.last_qty, ex->er.last_prc);
 		break;
 	}
 	default:
