@@ -76,6 +76,7 @@ Handshake functionality in twsapi is mandatory.
 
 ## check for dfp goodness
 SXE_CHECK_DFP754
+AM_CONDITIONAL([HAVE_DFP754], [test "${sxe_cv_feat_dfp754_literals}" = "yes"])
 
 
 AM_MISSING_PROG([GPERF], [gperf])

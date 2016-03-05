@@ -112,6 +112,7 @@ ox_tws_LDFLAGS += $(libev_LIBS)
 ox_tws_LDADD = $(ox_tws_LDFLAGS)
 BUILT_SOURCES += ox-tws.yucc
 
+if HAVE_DFP754
 bin_PROGRAMS += ibfx
 ibfx_SOURCES = ibfx.c ibfx.yuck
 EXTRA_ibfx_SOURCES =
@@ -167,6 +168,11 @@ ibex_LDFLAGS += $(libev_LIBS)
 ibex_LDADD = $(ibex_LDFLAGS)
 EXTRA_ibex_SOURCES = mc6-sock.c
 BUILT_SOURCES += ibex.yucc
+endif  HAVE_DFP754
+
+EXTRA_DIST += mc-sock.c
+EXTRA_DIST += dfp754_d32.c dfp754_d32.h
+EXTRA_DIST += dfp754_d64.c dfp754_d64.h
 
 
 ## yuck rule
