@@ -170,7 +170,7 @@ EXTRA_ibex_SOURCES = mc6-sock.c
 BUILT_SOURCES += ibex.yucc
 endif  HAVE_DFP754
 
-EXTRA_DIST += mc-sock.c
+EXTRA_DIST += mc6-sock.c
 EXTRA_DIST += dfp754_d32.c dfp754_d32.h
 EXTRA_DIST += dfp754_d64.c dfp754_d64.h
 
