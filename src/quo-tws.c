@@ -725,7 +725,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 {
 	static struct dccp_conn_s conns[8];
 	static size_t next = 0;
-	ctx_t ctx = w->data;
+	ctx_t ctx;
 	int s;
 
 	/* going down? */
@@ -739,6 +739,7 @@ dccp_cb(EV_P_ ev_io *w, int UNUSED(re))
 		return;
 	}
 
+	ctx = w->data;
 	logger("DCCP  %d", w->fd);
 
 	/* make way for this request */
