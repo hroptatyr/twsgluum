@@ -174,6 +174,9 @@ proc_REQCONTRACT_attr(
 	case TX_ATTR_EXCHANGE:
 		c->exchange = std::string(val);
 		break;
+	case TX_ATTR_LOCALSYMBOL:
+		c->localSymbol = std::string(val);
+		break;
 	default:
 		break;
 	}
